@@ -1,11 +1,44 @@
 @import 'tailwindcss';
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
 @source '../**/*.blade.php';
 @source '../**/*.js';
+@source '../**/*.jsx';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-heading: 'Archivo Black', sans-serif;
+    --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Kaydırma çubuğu */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #141312;
+}
+::-webkit-scrollbar-thumb {
+    background: #1E1C1A;
+    border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #3A3733; /* nötr: panelde bordo yalnızca "ilgilen" demek */
+}
+
+body {
+    background-color: #141312;
+    color: #F3EBDD;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Müşteri tarafı: çok hafif grain dokusu (brif: panelde doku yok) ---------- */
+.customer-grain::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 80; /* ekranların opak zeminlerinin üstünde, tıklamaları engellemez */
+    pointer-events: none;
+    opacity: 0.045;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.95 0 0 0 0 0.92 0 0 0 0 0.87 0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
