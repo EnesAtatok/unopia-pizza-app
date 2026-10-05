@@ -167,6 +167,7 @@ export const TablesScreen = ({ panelData, onSelectTable, onRefresh, loading, err
     const pendingOrders = panelData?.pending?.orders || [];
     const pendingCalls = panelData?.pending?.calls || [];
     const pendingTotal = pendingOrders.length + pendingCalls.length;
+    const stockAlerts = panelData?.stock_alerts || [];
     const hasBahce = tables.some((t) => t.section === 'bahce');
     const visibleTables = hasBahce ? tables.filter((t) => t.section === section) : tables;
 
@@ -223,6 +224,19 @@ export const TablesScreen = ({ panelData, onSelectTable, onRefresh, loading, err
                     </button>
                 </div>
             </div>
+
+            {stockAlerts.length > 0 && (
+                <div role="alert" className="px-4 py-3 rounded-[12px] bg-[#7B1E2B]/20 border border-[#9A2A38]/60 text-sm text-[#F3EBDD] space-y-1">
+                    <p className="font-semibold">Stoğu biten hammadde var</p>
+                    {stockAlerts.map((a) => (
+                        <p key={a.name} className="text-[#D9D1C3]">
+                            <strong className="text-[#F3EBDD]">{a.name}</strong>
+                            {a.products.length > 0 && <> — etkilenen ürünler: {a.products.join(', ')} (Tükendi)</>}
+                        </p>
+                    ))}
+                    <p className="text-xs text-[#B5AEA3]">Stok ekranından Ekle ile stok girin.</p>
+                </div>
+            )}
 
             {(error || actionError) && (
                 <div className="px-4 py-2.5 rounded-[12px] bg-[#171513] border border-[#F3EBDD]/15 text-sm text-[#F3EBDD]">

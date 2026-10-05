@@ -1,0 +1,17 @@
+{
+    "Bir siparişte en fazla :max farklı kalem olabilir.": "An order can contain at most :max different items.",
+    "Siparişiniz alındı, garson onayından sonra mutfağa iletilecek.": "Your order has been received and will be sent to the kitchen once the waiter confirms it.",
+    "Masa doğrulanamadı. Lütfen masanızdaki QR kodu tekrar okutun.": "We couldn't verify your table. Please scan the QR code on your table again.",
+    "Şu an kapalıyız. Çalışma saatlerimiz :open – :close.": "We are closed right now. Our opening hours are :open – :close.",
+    "Bir siparişte en fazla :max adet ürün olabilir. Daha büyük siparişler için garsonunuza başvurun.": "An order can contain at most :max items. For larger orders, please ask your waiter.",
+    "Şu ürün(ler) tükendi: :items. Lütfen sepetinizden çıkarın.": "Sold out: :items. Please remove them from your cart.",
+    ":product için geçersiz boy seçimi. Lütfen ürünü sepetinizden çıkarıp yeniden ekleyin.": "Invalid size selected for :product. Please remove it from your cart and add it again.",
+    "Stok yetersiz, şu ürün(ler) bu miktarda hazırlanamıyor: :items. Lütfen adedi azaltın veya garsonunuza danışın.": "Not enough stock to prepare this quantity of: :items. Please reduce the quantity or ask your waiter.",
+    "Onay bekleyen siparişleriniz var. Garsonunuz onayladıktan sonra yeni sipariş verebilirsiniz.": "You have orders awaiting confirmation. You can place a new order once your waiter confirms them.",
+    "Sipariş bulunamadı.": "Order not found.",
+    "Garson çağrınız personele iletildi.": "Your request has been sent to our staff.",
+    "Bu QR kod geçersiz veya artık kullanılmıyor. Lütfen personelden yardım isteyin.": "This QR code is invalid or no longer in use. Please ask our staff for help.",
+    "Çok fazla istek gönderildi. Lütfen biraz bekleyip tekrar deneyin.": "Too many requests. Please wait a moment and try again.",
+    "Kayıt bulunamadı.": "Not found.",
+    "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.": "An unexpected error occurred. Please try again."
+}

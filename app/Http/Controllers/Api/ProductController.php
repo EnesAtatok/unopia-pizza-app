@@ -4,12 +4,16 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Support\Translations;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
+    // QR menüde çevrilebilen alanlar ve en fazla uzunlukları (Türkçe alanlarla aynı)
+    private const TRANSLATED_FIELDS = ['name' => 80, 'description' => 255, 'ingredients' => 500];
+
     /**
      * Müşteri menüsü: menüden kaldırılmamış ürünler (tükenenler dahil, "Tükendi" olarak gösterilir)
      */
@@ -86,7 +90,7 @@ class ProductController extends Controller
     private function validated(Request $request): array
     {
         // multipart/form-data ile gelen alanlar string olur; JSON alanlarını çöz
-        foreach (['sizes', 'calories', 'allergens'] as $jsonField) {
+        foreach (['sizes', 'calories', 'allergens', 'translations'] as $jsonField) {
             if (is_string($request->input($jsonField))) {
                 $request->merge([$jsonField => json_decode($request->input($jsonField), true)]);
             }
@@ -110,12 +114,17 @@ class ProductController extends Controller
             'is_vegetarian' => 'nullable|boolean',
             'is_active' => 'nullable|boolean',
             'image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
-        ], [
+        ] + Translations::rules(self::TRANSLATED_FIELDS), [
             'image.max' => 'Fotoğraf en fazla 5 MB olabilir.',
             'image.image' => 'Yüklenen dosya bir fotoğraf olmalı.',
         ]);
 
         unset($data['image']);
+
+        // QR menü çevirileri: boş alanlar atılır, hiç çeviri yoksa null (müşteriye Türkçe gösterilir)
+        if ($request->has('translations')) {
+            $data['translations'] = Translations::clean($data['translations'] ?? null, self::TRANSLATED_FIELDS);
+        }
 
         // Boş boy fiyatlarını at; orta boy yoksa taban fiyatı kullan
         if (isset($data['sizes'])) {

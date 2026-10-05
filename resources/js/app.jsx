@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider, useCart } from './context/CartContext';
 import { apiService } from './api';
 import { useHistoryLayer } from './historyLayer';
+import { LangProvider, useLang } from './i18n/LangContext';
+import { localizeProduct, localizeCategory } from './i18n/localize';
 
 // Customer Flow Components
 import { OpeningAnimation } from './components/customer/OpeningAnimation';
@@ -86,6 +88,11 @@ const MainApp = () => {
         syncWithMenu(products);
     }, [products, syncWithMenu]);
 
+    // Müşteri menüsü seçilen dilde (çevirisi olmayan alan Türkçe); panel ham veriyi kullanır
+    const { lang } = useLang();
+    const menuProducts = useMemo(() => products.map((p) => localizeProduct(p, lang)), [products, lang]);
+    const menuCategories = useMemo(() => categories.map((c) => localizeCategory(c, lang)), [categories, lang]);
+
     // Panel: masalar ve bekleyenler (10 sn'de bir yenilenir)
     const refreshPanel = useCallback(async () => {
         setPanelLoading(true);
@@ -139,8 +146,8 @@ const MainApp = () => {
 
                 {customerView === 'menu' && (
                     <MenuScreen
-                        categories={categories}
-                        products={products}
+                        categories={menuCategories}
+                        products={menuProducts}
                         onSelectProduct={(p) => setSelectedProduct(p)}
                         onOpenCart={() => setIsCartOpen(true)}
                         onOpenWaiterCall={() => setIsWaiterCallOpen(true)}
@@ -150,7 +157,7 @@ const MainApp = () => {
                 )}
 
                 {selectedProduct && (
-                    <ProductDetailModal product={selectedProduct} onClose={() => setSelectedProduct(null)} />
+                    <ProductDetailModal product={localizeProduct(selectedProduct, lang)} onClose={() => setSelectedProduct(null)} />
                 )}
 
                 {isCartOpen && (
@@ -227,12 +234,15 @@ const MainApp = () => {
     );
 };
 
+// Dil yalnızca müşteri ekranında (QR menü) seçilebilir; panel Türkçe kalır
 const App = () => (
-    <AuthProvider>
-        <CartProvider>
-            <MainApp />
-        </CartProvider>
-    </AuthProvider>
+    <LangProvider enabled={APP_MODE === 'customer'}>
+        <AuthProvider>
+            <CartProvider>
+                <MainApp />
+            </CartProvider>
+        </AuthProvider>
+    </LangProvider>
 );
 
 const rootElement = document.getElementById('root');

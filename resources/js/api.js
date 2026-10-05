@@ -20,10 +20,17 @@ if (legacyToken) {
     api.post('/logout', null, { headers: { Authorization: `Bearer ${legacyToken}` } }).catch(() => {});
 }
 
+// QR menüde seçilen dil: müşteriye giden sunucu mesajları bu dilde döner (panel ayarlamaz → Türkçe)
+let customerLocale = null;
+export const setApiLocale = (locale) => {
+    customerLocale = locale;
+};
+
 api.interceptors.request.use((config) => {
     if (authToken && !config.headers.Authorization) {
         config.headers.Authorization = `Bearer ${authToken}`;
     }
+    if (customerLocale) config.headers['X-Locale'] = customerLocale;
     return config;
 });
 
@@ -110,12 +117,15 @@ export const apiService = {
     setProductVisibility: async (productId, isVisible) =>
         (await api.patch(`/panel/products/${productId}/visibility`, { is_visible: isVisible })).data.data,
     createCategory: async (name) => (await api.post('/panel/categories', { name })).data.data,
+    // data: { name?, translations? } — translations: { en: { name }, bg: {...}, el: {...} }
+    updateCategory: async (id, data) => (await api.patch(`/panel/categories/${id}`, data)).data.data,
+    // İçinde ürün olan kategori silinmez (409, açıklamalı mesaj)
+    deleteCategory: async (id) => (await api.delete(`/panel/categories/${id}`)).data,
 
     // Panel: Stok ve reçete
     getStock: async () => (await api.get('/panel/stock')).data.data,
     createRawMaterial: async (data) => (await api.post('/panel/stock', data)).data.data,
     purchaseStock: async (id, data) => (await api.post(`/panel/stock/${id}/purchase`, data)).data.data,
-    countStock: async (id, actual) => (await api.post(`/panel/stock/${id}/count`, { actual })).data.data,
     wasteStock: async (id, data) => (await api.post(`/panel/stock/${id}/waste`, data)).data.data,
     getStockMovements: async (id) => (await api.get(`/panel/stock/${id}/movements`)).data.data,
     getRecipe: async (productId) => (await api.get(`/panel/recipes/${productId}`)).data.data,

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { ArrowLeft, Bell, CheckCircle2, Clock } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { apiService, errorMessage as apiError } from '../../api';
+import { useLang } from '../../i18n/LangContext';
+import { tableLabel } from '../../i18n/localize';
 
 export const WaiterCallModal = ({ onClose }) => {
     const { tableNumber, tableToken, waiterCallTime, triggerWaiterCall } = useCart();
@@ -11,10 +13,12 @@ export const WaiterCallModal = ({ onClose }) => {
 
     const isLocked = waiterCallTime && Date.now() - waiterCallTime < 180000;
 
+    const { t } = useLang();
+    // Panele Türkçe sebep gider (personel Türkçe okur); müşteri kendi dilinde görür
     const reasons = [
-        'Sipariş vermek istiyorum',
-        'Hesabı istiyorum',
-        'Başka bir konu',
+        { key: 'order', value: 'Sipariş vermek istiyorum' },
+        { key: 'bill', value: 'Hesabı istiyorum' },
+        { key: 'other', value: 'Başka bir konu' },
     ];
 
     // Masa yalnızca masadaki QR koddan gelir; QR okutulmadan garson çağrılamaz
@@ -31,12 +35,12 @@ export const WaiterCallModal = ({ onClose }) => {
             });
 
             triggerWaiterCall();
-            setSuccessMessage('Garson geliyor');
+            setSuccessMessage(t('waiter.coming'));
             setTimeout(() => {
                 onClose();
             }, 1800);
         } catch (err) {
-            setErrorMessage(apiError(err, 'Çağrı iletilemedi. Lütfen tekrar deneyin veya personele seslenin.'));
+            setErrorMessage(apiError(err, t('waiter.error')));
         } finally {
             setSubmitting(false);
         }
@@ -49,16 +53,16 @@ export const WaiterCallModal = ({ onClose }) => {
                 <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[#F3EBDD]/10">
                     <button
                         onClick={onClose}
-                        aria-label="Menüye dön"
+                        aria-label={t('cart.backToMenu')}
                         className="w-11 h-11 rounded-full bg-[#1E1C1A] border border-[#F3EBDD]/10 flex items-center justify-center text-[#F3EBDD] cursor-pointer"
                     >
                         <ArrowLeft className="w-5 h-5" />
                     </button>
                     <div>
                         <h2 className="font-heading text-lg font-black tracking-wide text-[#F3EBDD] uppercase">
-                            Garson Çağır
+                            {t('waiter.call')}
                         </h2>
-                        <p className="text-xs text-[#A6A277]">{tableNumber}</p>
+                        <p className="text-xs text-[#A6A277]">{tableLabel(tableNumber, t)}</p>
                     </div>
                 </div>
 
@@ -69,29 +73,29 @@ export const WaiterCallModal = ({ onClose }) => {
                             {successMessage}
                         </h3>
                         <p className="text-xs text-[#B5AEA3]">
-                            Personelimiz en kısa sürede masanıza gelecektir.
+                            {t('waiter.successText')}
                         </p>
                     </div>
                 ) : isLocked ? (
                     <div className="bg-[#1E1C1A] border border-[#6E6B45]/40 rounded-[16px] p-6 text-center space-y-3">
                         <Clock className="w-12 h-12 text-[#A6A277] mx-auto" />
                         <h3 className="font-heading text-base font-bold text-[#F3EBDD]">
-                            Garson geliyor
+                            {t('waiter.coming')}
                         </h3>
                         <p className="text-xs text-[#B5AEA3]">
-                            Çağrınız personele iletildi ve yolda. Lütfen bekleyiniz.
+                            {t('waiter.lockedText')}
                         </p>
                         <button
                             onClick={onClose}
                             className="mt-2 h-11 px-8 rounded-full bg-[#7B1E2B] hover:bg-[#9A2A38] text-sm font-semibold text-[#F3EBDD] cursor-pointer"
                         >
-                            Tamam
+                            {t('common.ok')}
                         </button>
                     </div>
                 ) : (
                     <div className="space-y-4">
                         <p className="text-xs text-[#B5AEA3]">
-                            Lütfen garsonu çağırma sebebinizi seçiniz:
+                            {t('waiter.prompt')}
                         </p>
 
                         {errorMessage && (
@@ -103,9 +107,9 @@ export const WaiterCallModal = ({ onClose }) => {
                         <div className="space-y-2.5">
                             {reasons.map((reason) => (
                                 <button
-                                    key={reason}
+                                    key={reason.key}
                                     type="button"
-                                    onClick={() => handleCall(reason)}
+                                    onClick={() => handleCall(reason.value)}
                                     disabled={submitting || !tableToken}
                                     className="w-full py-4 px-5 rounded-[16px] bg-[#1E1C1A] hover:bg-[#252320] border border-[#F3EBDD]/8 hover:border-[#6E6B45] text-left text-sm font-medium text-[#F3EBDD] flex items-center justify-between transition-all active:scale-[0.99] cursor-pointer group"
                                 >
@@ -113,7 +117,7 @@ export const WaiterCallModal = ({ onClose }) => {
                                         <div className="w-8 h-8 rounded-full bg-[#141312] border border-[#F3EBDD]/10 flex items-center justify-center text-[#A6A277] group-hover:text-[#F3EBDD]">
                                             <Bell className="w-4 h-4" />
                                         </div>
-                                        <span>{reason}</span>
+                                        <span>{t(`waiter.reasons.${reason.key}`)}</span>
                                     </div>
                                     <span className="text-xs text-[#A6A277] group-hover:translate-x-1 transition-transform">
                                         →

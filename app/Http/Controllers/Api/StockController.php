@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
- * Stok ve reçete: gramaj bazlı hammadde, alış, sayım, fire.
+ * Stok ve reçete: gramaj bazlı hammadde, alış, fire.
  * Tüm miktarlar hammaddenin temel biriminde tutulur (g, ml, adet).
  */
 class StockController extends Controller
@@ -82,29 +82,8 @@ class StockController extends Controller
             $material->current_stock = (float) $material->current_stock + $qty;
             $material->save();
 
-            $this->log($material, 'purchase', $qty, $data['description'] ?? 'Alış', $request->user()->id);
-        });
-        $this->stock->refreshAvailability([$material->id]);
-
-        return response()->json(['success' => true, 'data' => $this->present($material->fresh())]);
-    }
-
-    /**
-     * Sayım: sayılan gerçek miktar girilir, fark "adjustment" hareketi olarak kaydedilir.
-     */
-    public function count(Request $request, int $id)
-    {
-        $material = $this->findOwned($request, $id);
-
-        $data = $request->validate(['actual' => 'required|numeric|min:0|max:' . self::MAX_QTY]);
-
-        DB::transaction(function () use ($material, $data, $request) {
-            $diff = (float) $data['actual'] - (float) $material->current_stock;
-            $material->update(['current_stock' => $data['actual']]);
-
-            if (abs($diff) > 0.0005) {
-                $this->log($material, 'adjustment', $diff, 'Sayım farkı', $request->user()->id);
-            }
+            $cost = !empty($data['total_cost']) ? (float) $data['total_cost'] : null;
+            $this->log($material, 'purchase', $qty, $data['description'] ?? 'Alış', $request->user()->id, $cost);
         });
         $this->stock->refreshAvailability([$material->id]);
 
@@ -219,16 +198,19 @@ class StockController extends Controller
             'critical_level' => $critical,
             'average_cost' => (float) $m->average_cost,
             'is_critical' => $critical > 0 && (float) $m->current_stock <= $critical,
+            // Stok bitti: bu hammaddeyi kullanan ürünler sipariş edilemez
+            'is_out' => (float) $m->current_stock <= 0.0005,
         ];
     }
 
-    private function log(RawMaterial $material, string $type, float $qty, string $description, ?int $userId): void
+    private function log(RawMaterial $material, string $type, float $qty, string $description, ?int $userId, ?float $totalCost = null): void
     {
         StockMovement::create([
             'business_id' => $material->business_id,
             'raw_material_id' => $material->id,
             'type' => $type,
             'quantity' => $qty,
+            'total_cost' => $totalCost,
             'description' => $description,
             'user_id' => $userId,
         ]);

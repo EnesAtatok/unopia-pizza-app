@@ -29,7 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(function (ThrottleRequestsException $e, Request $request) use ($json) {
             if ($request->is('api/*')) {
-                return $json('Çok fazla istek gönderildi. Lütfen biraz bekleyip tekrar deneyin.', 429);
+                return $json(__('Çok fazla istek gönderildi. Lütfen biraz bekleyip tekrar deneyin.'), 429);
             }
         });
         $exceptions->render(function (AuthenticationException $e, Request $request) use ($json) {
@@ -39,13 +39,13 @@ return Application::configure(basePath: dirname(__DIR__))
         });
         $exceptions->render(function (ModelNotFoundException|NotFoundHttpException $e, Request $request) use ($json) {
             if ($request->is('api/*')) {
-                return $json('Kayıt bulunamadı.', 404);
+                return $json(__('Kayıt bulunamadı.'), 404);
             }
         });
         $exceptions->render(function (Throwable $e, Request $request) use ($json) {
             $handled = $e instanceof HttpExceptionInterface || $e instanceof ValidationException || $e instanceof AuthorizationException;
             if ($request->is('api/*') && !config('app.debug') && !$handled) {
-                return $json('Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.', 500);
+                return $json(__('Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.'), 500);
             }
         });
     })->create();

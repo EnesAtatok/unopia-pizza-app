@@ -52,9 +52,15 @@ export const getDefaultSize = (product) => {
 export const priceForSize = (product, sizeLabel) =>
     getSizeOptions(product).find((o) => o.label === sizeLabel)?.price ?? Number(product.price);
 
+// Fiyat biçimi QR menüde seçilen dile göre (₺1.030 / ₺1,030 / ₺1 030); panel her zaman tr-TR
+let priceLocale = 'tr-TR';
+export const setPriceLocale = (locale) => {
+    priceLocale = locale;
+};
+
 // Kuruş varsa gösterilir (₺12,49), yoksa tam sayı (₺320): ekrandaki tutar sunucunun hesapladığıyla aynı
 export const formatPrice = (value) =>
-    `₺${(Math.round((Number(value) || 0) * 100) / 100).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    `₺${(Math.round((Number(value) || 0) * 100) / 100).toLocaleString(priceLocale, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
 /**
  * Ürün adını büyük harfe çevirir. Dil bağımsız toUpperCase: i → I (MARGHERITA, "MARGHERİTA" değil).
@@ -71,6 +77,7 @@ const searchKey = (text) =>
     (text || '')
         .toLocaleLowerCase('tr-TR')
         .replace(/ı/g, 'i')
+        .replace(/ς/g, 'σ') // Yunanca kelime sonu sigma
         .normalize('NFD')
         .replace(/[̀-ͯ]/g, '');
 

@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
+import { useLang } from '../../i18n/LangContext';
 
 /*
- * Açılış videosu (public/videos/intro.mp4, 16:9, ~10 sn). Müşteri ilk girdiğinde oynar, bitince
+ * Açılış videosu (public/videos/intro.mp4, 16:9, ~10 sn; 1.5x hızda ~7 sn). Müşteri ilk girdiğinde oynar, bitince
  * karşılama ekranı açılır; aynı oturumda yalnızca bir kez gösterilir (app.jsx).
  * - Video ekrana TAM sığar, hiçbir yeri kırpılmaz (telefonda ekran genişliğinde, dikeyde ortada).
  *   Üst/alt boşluğu aynı videonun bulanık kopyası doldurur; video kenarları ona yumuşakça karışır.
@@ -11,10 +12,12 @@ import { Volume2, VolumeX } from 'lucide-react';
  */
 const VIDEO_SRC = '/videos/intro.mp4';
 const POSTER_SRC = '/videos/intro-poster.jpg';
+const PLAYBACK_RATE = 1.5; // video 1.5x hızda oynar (~7 sn)
 const START_TIMEOUT_MS = 4000; // bu sürede oynamaya başlamazsa karşılama ekranına geçilir
 const EDGE_FADE = 'linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%)';
 
 export const OpeningAnimation = ({ onComplete }) => {
+    const { t } = useLang();
     const videoRef = useRef(null);
     const bgRef = useRef(null);
     const doneRef = useRef(false);
@@ -36,6 +39,11 @@ export const OpeningAnimation = ({ onComplete }) => {
         if (!video || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
             finish();
             return;
+        }
+
+        // Hız yeni kaynak yüklenince sıfırlanmasın diye varsayılan hız da ayarlanır
+        for (const v of [video, bgRef.current]) {
+            if (v) v.defaultPlaybackRate = v.playbackRate = PLAYBACK_RATE;
         }
 
         let started = false;
@@ -73,7 +81,7 @@ export const OpeningAnimation = ({ onComplete }) => {
         <div
             onClick={finish}
             role="button"
-            aria-label="Açılış videosunu geç"
+            aria-label={t('anim.skip')}
             className={`fixed inset-0 z-[60] bg-[#0C0B0A] cursor-pointer select-none overflow-hidden transition-opacity duration-300 ${
                 leaving ? 'opacity-0' : 'opacity-100'
             }`}
@@ -111,14 +119,14 @@ export const OpeningAnimation = ({ onComplete }) => {
             <button
                 type="button"
                 onClick={toggleSound}
-                aria-label={muted ? 'Sesi aç' : 'Sesi kapat'}
+                aria-label={muted ? t('anim.unmute') : t('anim.mute')}
                 className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 w-11 h-11 rounded-full bg-[#141312]/70 backdrop-blur-md border border-[#F3EBDD]/15 text-[#F3EBDD] flex items-center justify-center cursor-pointer"
             >
                 {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
             </button>
 
             <div className="absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] inset-x-0 text-center text-xs text-[#F3EBDD]/55 tracking-wider pointer-events-none">
-                Geçmek için ekrana dokunun
+                {t('anim.tapToSkip')}
             </div>
         </div>
     );

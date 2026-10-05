@@ -4,10 +4,13 @@ import { AllergenIcon, VegetarianLeafIcon, SauceDrips } from '../common/Icons';
 import { useCart } from '../../context/CartContext';
 import { getDefaultSize, priceForSize, formatPrice, productDisplayName, matchesSearch } from '../../productImage';
 import { ProductPhoto } from './ProductPhoto';
+import { useLang } from '../../i18n/LangContext';
+import { tableLabel } from '../../i18n/localize';
 
 const WAITER_LOCK_MS = 180000;
 
 const AllergenBadges = ({ product }) => {
+    const { t } = useLang();
     const allergens = Array.isArray(product.allergens) ? product.allergens : [];
     const withIcon = allergens.filter((a) => AllergenIcon({ name: a }));
     if (withIcon.length === 0 && !product.is_vegetarian) return null;
@@ -15,13 +18,13 @@ const AllergenBadges = ({ product }) => {
     return (
         <div className="flex items-center gap-1.5">
             {withIcon.map((a) => (
-                <span key={a} title={a} aria-label={a} className="w-6 h-6 rounded-full border border-[#6E6B45]/70 flex items-center justify-center text-[#A6A277]">
+                <span key={a} title={t(`allergen.${a}`, null, a)} aria-label={t(`allergen.${a}`, null, a)} className="w-6 h-6 rounded-full border border-[#6E6B45]/70 flex items-center justify-center text-[#A6A277]">
                     <AllergenIcon name={a} className="w-3.5 h-3.5" />
                 </span>
             ))}
             {/* Vejetaryen etiketi alerjenlerden ayrı: farklı (dolgulu) görünüm */}
             {product.is_vegetarian && (
-                <span title="Vejetaryen" aria-label="Vejetaryen" className="w-6 h-6 rounded-full bg-[#6E6B45]/30 flex items-center justify-center text-[#A6A277]">
+                <span title={t('product.vegetarian')} aria-label={t('product.vegetarian')} className="w-6 h-6 rounded-full bg-[#6E6B45]/30 flex items-center justify-center text-[#A6A277]">
                     <VegetarianLeafIcon className="w-3.5 h-3.5" />
                 </span>
             )}
@@ -30,6 +33,7 @@ const AllergenBadges = ({ product }) => {
 };
 
 const ProductCard = ({ product, onSelect }) => {
+    const { t } = useLang();
     const isSoldOut = !product.is_active;
 
     return (
@@ -67,7 +71,7 @@ const ProductCard = ({ product, onSelect }) => {
                     {/* Hızlı ekleme yok: ürün yalnızca detay ekranında içeriği görülüp boyu seçilerek sepete eklenir */}
                     {isSoldOut && (
                         <span className="ml-auto text-[11px] font-semibold px-3 py-1.5 rounded-full bg-[#141312] border border-[#F3EBDD]/15 text-[#B5AEA3]">
-                            Tükendi
+                            {t('product.soldOut')}
                         </span>
                     )}
                 </div>
@@ -86,6 +90,7 @@ export const MenuScreen = ({
     onBackToWelcome,
 }) => {
     const { cartCount, cartTotal, tableNumber, activeOrder, waiterCallTime } = useCart();
+    const { t } = useLang();
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -94,7 +99,8 @@ export const MenuScreen = ({
     const filteredProducts = useMemo(() => {
         return products.filter((p) => {
             // Arama yapılırken tüm kategorilerde aranır
-            if (searchQuery.trim()) return matchesSearch(p, searchQuery);
+            // Seçilen dilde ve Türkçe adla arama
+            if (searchQuery.trim()) return matchesSearch(p, searchQuery) || (p._tr && matchesSearch(p._tr, searchQuery));
             return activeCatId ? p.category_id === activeCatId : true;
         });
     }, [products, activeCatId, searchQuery]);
@@ -115,14 +121,14 @@ export const MenuScreen = ({
                         <button
                             onClick={onBackToWelcome}
                             className="w-11 h-11 rounded-full bg-[#1E1C1A] border border-[#F3EBDD]/10 flex items-center justify-center hover:bg-[#252320] transition-colors cursor-pointer shrink-0"
-                            aria-label="Karşılama ekranına dön"
+                            aria-label={t('menu.back')}
                         >
                             <ArrowLeft className="w-5 h-5 text-[#F3EBDD]" />
                         </button>
                         <img src="/images/unopia-logo-round.png" alt="UNOPIA" className="w-11 h-11 rounded-full shrink-0" />
                         <div className="min-w-0">
                             <div className="font-heading text-base tracking-wider text-[#F3EBDD] leading-none">UNOPIA</div>
-                            {tableNumber && <div className="text-xs text-[#A6A277] mt-1 truncate">{tableNumber}</div>}
+                            {tableNumber && <div className="text-xs text-[#A6A277] mt-1 truncate">{tableLabel(tableNumber, t)}</div>}
                         </div>
                     </div>
 
@@ -133,7 +139,7 @@ export const MenuScreen = ({
                             className="h-11 px-4 rounded-full bg-[#1E1C1A] border border-[#6E6B45]/70 text-[#F3EBDD] text-xs font-semibold flex items-center gap-2 cursor-pointer shrink-0"
                         >
                             <Receipt className="w-4 h-4 text-[#A6A277]" />
-                            Siparişim
+                            {t('menu.myOrder')}
                         </button>
                     )}
                 </div>
@@ -143,7 +149,7 @@ export const MenuScreen = ({
                     <Search className="w-4 h-4 text-[#B5AEA3] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                         type="search"
-                        placeholder="Menüde ara..."
+                        placeholder={t('menu.search')}
                         value={searchQuery}
                         maxLength={60}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -178,7 +184,7 @@ export const MenuScreen = ({
             <main className="px-4 pt-3 space-y-3">
                 {filteredProducts.length === 0 ? (
                     <div className="text-center py-16 text-[#B5AEA3] text-sm [overflow-wrap:anywhere]">
-                        {searchQuery ? `"${searchQuery}" için sonuç bulunamadı.` : 'Bu kategoride ürün bulunamadı.'}
+                        {searchQuery ? t('menu.noResults', { q: searchQuery }) : t('menu.emptyCategory')}
                     </div>
                 ) : (
                     filteredProducts.map((product) => (
@@ -205,7 +211,7 @@ export const MenuScreen = ({
                         }`}
                     >
                         <Bell className="w-4 h-4 text-[#A6A277]" />
-                        <span>{isWaiterComing ? 'Garson geliyor' : cartCount > 0 ? 'Garson' : 'Garson Çağır'}</span>
+                        <span>{isWaiterComing ? t('waiter.coming') : cartCount > 0 ? t('waiter.short') : t('waiter.call')}</span>
                     </button>
 
                     {cartCount > 0 && (
@@ -215,7 +221,7 @@ export const MenuScreen = ({
                         >
                             <ShoppingBag className="w-4 h-4" />
                             <span className="tabular-nums">
-                                Sepet · {cartCount} · {formatPrice(cartTotal)}
+                                {t('menu.cartBar', { n: cartCount, total: formatPrice(cartTotal) })}
                             </span>
                         </button>
                     )}

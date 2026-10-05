@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, ChevronLeft, ChevronRight, HandCoins, ReceiptText, Banknote, CreditCard, ArrowRightLeft } from 'lucide-react';
+import { RefreshCw, ChevronLeft, ChevronRight, HandCoins, ReceiptText, Banknote, CreditCard, ArrowRightLeft, PackagePlus } from 'lucide-react';
 import { apiService, errorMessage } from '../../api';
 import { formatPrice } from '../../productImage';
 import { FlowLines } from '../common/Icons';
@@ -177,6 +177,12 @@ export const ReportsScreen = () => {
                                 Reddedilen sipariş: <strong className="text-[#F3EBDD] tabular-nums">{report.rejected_orders}</strong>
                             </span>
                         </span>
+                        <span className="flex items-center gap-2">
+                            <PackagePlus className="w-4 h-4 text-[#A6A277]" aria-hidden="true" />
+                            <span>
+                                Stok alışları: <strong className="text-[#F3EBDD] tabular-nums">{formatPrice(report.purchase_total)}</strong>
+                            </span>
+                        </span>
                     </div>
 
                     {/* Ürün bazlı satış */}
@@ -209,6 +215,44 @@ export const ReportsScreen = () => {
                                                         />
                                                     </div>
                                                 </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </section>
+
+                    {/* Stok alışları: Stok → Ekle'de toplam tutar girilenler */}
+                    <section className={sectionCls}>
+                        <h3 className={`${sectionHeadCls} flex items-center justify-between gap-3`}>
+                            Stok alışları
+                            <span className="tabular-nums">{formatPrice(report.purchase_total)}</span>
+                        </h3>
+                        {report.purchases.length === 0 ? (
+                            <p className="text-sm text-[#B5AEA3] px-4 py-4">{period === 'day' ? 'Bu gün' : `Bu ${unit}`} tutarı girilen alış yok.</p>
+                        ) : (
+                            <div className="px-4 pb-2 overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="text-left text-xs text-[#A6A277] border-b border-[#6E6B45]/25">
+                                            <th className="py-2.5 font-medium w-28">Tarih</th>
+                                            <th className="py-2.5 font-medium">Hammadde</th>
+                                            <th className="py-2.5 font-medium text-right w-24">Miktar</th>
+                                            <th className="py-2.5 font-medium text-right w-28">Tutar</th>
+                                            <th className="py-2.5 pl-6 font-medium hidden sm:table-cell">Açıklama</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {report.purchases.map((p) => (
+                                            <tr key={p.id} className="border-b border-[#6E6B45]/15 last:border-0">
+                                                <td className="py-3 text-[#B5AEA3] tabular-nums">
+                                                    {new Date(p.date).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                                </td>
+                                                <td className="py-3 text-[#F3EBDD]">{p.name}</td>
+                                                <td className="py-3 text-right text-[#F3EBDD] tabular-nums">{p.quantity.toLocaleString('tr-TR')} {p.base_unit}</td>
+                                                <td className="py-3 text-right text-[#F3EBDD] font-semibold tabular-nums">{formatPrice(p.total_cost)}</td>
+                                                <td className="py-3 pl-6 text-[#B5AEA3] hidden sm:table-cell truncate max-w-[16rem]">{p.description}</td>
                                             </tr>
                                         ))}
                                     </tbody>

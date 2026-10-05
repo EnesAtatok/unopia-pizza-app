@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\RawMaterial;
+use App\Models\StockMovement;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -78,6 +79,25 @@ class ReportController extends Controller
                 'revenue' => (float) $row->revenue,
             ]);
 
+        // Stok alışları: Stok → Ekle'de toplam tutar girilen alışlar (dönemin gideri)
+        $purchases = StockMovement::with('rawMaterial:id,name,base_unit')
+            ->where('business_id', $businessId)
+            ->where('type', 'purchase')
+            ->whereNotNull('total_cost')
+            ->whereBetween('created_at', [$from, $to])
+            ->latest()
+            ->get()
+            ->map(fn (StockMovement $m) => [
+                'id' => $m->id,
+                'date' => $m->created_at->toIso8601String(),
+                'name' => $m->rawMaterial?->name ?? 'Silinmiş hammadde',
+                'base_unit' => $m->rawMaterial?->base_unit,
+                'quantity' => (float) $m->quantity,
+                'total_cost' => (float) $m->total_cost,
+                'description' => $m->description,
+            ]);
+        $purchaseTotal = round($purchases->sum('total_cost'), 2);
+
         $criticalStocks = RawMaterial::where('business_id', $businessId)
             ->where('critical_level', '>', 0)
             ->whereColumn('current_stock', '<=', 'critical_level')
@@ -99,6 +119,8 @@ class ReportController extends Controller
                 'rejected_orders' => $rejectedCount,
                 'open_amount' => $openAmount,
                 'product_sales' => $productSales,
+                'purchase_total' => $purchaseTotal,
+                'purchases' => $purchases,
                 'critical_stocks' => $criticalStocks,
             ],
         ]);

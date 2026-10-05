@@ -2,12 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { ChevronRight, Star, MapPin } from 'lucide-react';
 import { BUSINESS, isOpenNow } from '../../config/business';
 import { InstagramIcon, WhatsAppIcon, KidPlayIcon, SauceDrips } from '../common/Icons';
+import { useLang } from '../../i18n/LangContext';
+import { tableLabel } from '../../i18n/localize';
+import { LanguagePicker } from './LanguagePicker';
 
+// label: sözlük anahtarı (marka adları her dilde aynı)
 const LINKS = [
-    { label: 'Bizi Değerlendir', href: BUSINESS.googleReviews, Icon: Star },
+    { label: 'links.review', href: BUSINESS.googleReviews, Icon: Star },
     { label: 'WhatsApp', href: `https://wa.me/${BUSINESS.whatsapp}`, Icon: WhatsAppIcon },
     { label: 'Instagram', href: BUSINESS.instagram, Icon: InstagramIcon },
-    { label: 'Yol Tarifi', href: BUSINESS.maps, Icon: MapPin },
+    { label: 'links.directions', href: BUSINESS.maps, Icon: MapPin },
 ];
 
 /*
@@ -16,6 +20,7 @@ const LINKS = [
  * geniş ekranda ortada 430px'lik sütun olarak görünür.
  */
 export const WelcomeScreen = ({ onOpenMenu, tableNumber, tableError }) => {
+    const { t } = useLang();
     // Açık/kapalı durumu saate göre canlı hesaplanır
     const [open, setOpen] = useState(() => isOpenNow());
     useEffect(() => {
@@ -28,6 +33,11 @@ export const WelcomeScreen = ({ onOpenMenu, tableNumber, tableError }) => {
             {/* Üst kenardan akan sos damlaları */}
             <SauceDrips className="absolute top-0 inset-x-0 w-full h-[150px] pointer-events-none" />
 
+            {/* Dil seçimi (bayraklı): animasyondan sonra ilk görülen ekranda */}
+            <div className="absolute z-20 right-3 top-[max(0.75rem,env(safe-area-inset-top))]">
+                <LanguagePicker />
+            </div>
+
             <div className="relative z-10 flex flex-col items-center px-4 pt-[max(3.5rem,calc(env(safe-area-inset-top)+2.5rem))]">
                 <img
                     src="/images/unopia-logo-round.png"
@@ -35,13 +45,13 @@ export const WelcomeScreen = ({ onOpenMenu, tableNumber, tableError }) => {
                     className="w-[132px] h-[132px] rounded-full shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
                     draggable={false}
                 />
-                <p className="mt-5 text-[19px] text-[#F3EBDD] tracking-[0.01em]">Doğal malzemeler, taze hamur</p>
+                <p className="mt-5 text-[19px] text-[#F3EBDD] tracking-[0.01em] text-center">{t('welcome.tagline')}</p>
 
                 {/* Masa: yalnızca masadaki QR koddan gelir */}
                 {tableNumber && (
                     <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#1E1C1A] border border-[#6E6B45]/70 text-[#A6A277] text-xs font-medium">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#A6A277] animate-pulse" />
-                        {tableNumber} · Hoş geldiniz
+                        {t('welcome.greeting', { table: tableLabel(tableNumber, t) })}
                     </div>
                 )}
                 {!tableNumber && tableError && (
@@ -55,7 +65,7 @@ export const WelcomeScreen = ({ onOpenMenu, tableNumber, tableError }) => {
                     onClick={onOpenMenu}
                     className="mt-6 w-full h-[56px] rounded-full bg-[#7B1E2B] hover:bg-[#9A2A38] active:bg-[#9A2A38] text-[#F3EBDD] text-[17px] font-semibold flex items-center justify-center gap-2 shadow-xl shadow-[#7B1E2B]/30 transition-colors cursor-pointer"
                 >
-                    Menüyü Gör
+                    {t('welcome.openMenu')}
                     <ChevronRight className="w-5 h-5" />
                 </button>
 
@@ -70,8 +80,8 @@ export const WelcomeScreen = ({ onOpenMenu, tableNumber, tableError }) => {
                         >
                             <Icon className="w-6 h-6" strokeWidth={1.75} />
                             <span className="flex items-center justify-between text-[13px] font-medium">
-                                {label}
-                                <ChevronRight className="w-4 h-4 text-[#B5AEA3]" />
+                                {label.includes('.') ? t(label) : label}
+                                <ChevronRight className="w-4 h-4 text-[#B5AEA3] shrink-0" />
                             </span>
                         </a>
                     ))}
@@ -81,7 +91,7 @@ export const WelcomeScreen = ({ onOpenMenu, tableNumber, tableError }) => {
                 <div className="mt-4 w-full flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5 min-w-0 whitespace-nowrap" aria-live="polite">
                         <span className={`w-3.5 h-3.5 rounded-full shrink-0 ${open ? 'bg-[#6E6B45]' : 'bg-[#B5AEA3]/40'}`} />
-                        <span className="text-sm font-medium text-[#F3EBDD]">{open ? 'Şu an açık' : 'Şu an kapalı'}</span>
+                        <span className="text-sm font-medium text-[#F3EBDD]">{open ? t('welcome.openNow') : t('welcome.closedNow')}</span>
                         <span className="w-px h-4 bg-[#F3EBDD]/25" />
                         <span className="text-xs text-[#B5AEA3] tabular-nums">
                             {BUSINESS.hours.open} – {BUSINESS.hours.close}
@@ -89,7 +99,7 @@ export const WelcomeScreen = ({ onOpenMenu, tableNumber, tableError }) => {
                     </div>
                     <span className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-[#6E6B45]/70 text-[#F3EBDD] text-xs font-medium">
                         <KidPlayIcon className="w-4 h-4" />
-                        Çocuk oyun alanı
+                        {t('welcome.kids')}
                     </span>
                 </div>
             </div>

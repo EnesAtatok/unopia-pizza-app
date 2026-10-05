@@ -3,7 +3,7 @@ import { apiService, errorMessage } from '../api';
 
 const AuthContext = createContext();
 
-// Rol bazlı yetki: yönetici (patron/müdür) tüm ekranlar; garson masalar, mutfak ekranı, QR kodlar
+// Rol bazlı yetki: yönetici (patron/müdür) tüm ekranlar; garson masalar ve mutfak ekranı
 export const MANAGER_ROLES = ['patron', 'mudur'];
 
 export const AuthProvider = ({ children }) => {

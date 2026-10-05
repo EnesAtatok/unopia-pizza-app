@@ -20,7 +20,7 @@ class TableController extends Controller
         if (!$table) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu QR kod geçersiz veya artık kullanılmıyor. Lütfen personelden yardım isteyin.',
+                'message' => __('Bu QR kod geçersiz veya artık kullanılmıyor. Lütfen personelden yardım isteyin.'),
             ], 404);
         }
 

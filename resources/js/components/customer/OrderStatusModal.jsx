@@ -2,20 +2,24 @@ import React, { useEffect } from 'react';
 import { ArrowLeft, Check, Send, ChefHat, XCircle, Bell, HandPlatter } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { formatPrice } from '../../productImage';
+import { useLang } from '../../i18n/LangContext';
+import { localizeProduct, tableLabel } from '../../i18n/localize';
 
 // Mutfak ekranındaki adımlarla birebir: Gönderildi → Onaylandı → Hazırlanıyor → Hazır → Servis edildi
+// Başlık ve açıklama sözlükte: status.steps.<durum> = [başlık, açıklama]
 const STEPS = [
-    { status: 'pending', title: 'Gönderildi', desc: 'Garson onayı bekleniyor', icon: Send },
-    { status: 'approved', title: 'Onaylandı', desc: 'Siparişiniz mutfağa iletildi', icon: Check },
-    { status: 'preparing', title: 'Hazırlanıyor', desc: 'Siparişiniz fırında', icon: ChefHat },
-    { status: 'ready', title: 'Hazır', desc: 'Masanıza getiriliyor', icon: Bell },
-    { status: 'served', title: 'Servis edildi', desc: 'Afiyet olsun!', icon: HandPlatter },
+    { status: 'pending', icon: Send },
+    { status: 'approved', icon: Check },
+    { status: 'preparing', icon: ChefHat },
+    { status: 'ready', icon: Bell },
+    { status: 'served', icon: HandPlatter },
 ];
 
 const stepIndexFor = (status) => Math.max(0, STEPS.findIndex((s) => s.status === status));
 
 export const OrderStatusModal = ({ onClose }) => {
     const { activeOrder, setActiveOrder, refreshActiveOrder } = useCart();
+    const { lang, t } = useLang();
 
     // Pencere açılınca durumu beklemeden tazele
     useEffect(() => {
@@ -41,15 +45,15 @@ export const OrderStatusModal = ({ onClose }) => {
                 <div className="flex items-center gap-3 mb-5">
                     <button
                         onClick={onClose}
-                        aria-label="Menüye dön"
+                        aria-label={t('cart.backToMenu')}
                         className="w-11 h-11 rounded-full bg-[#1E1C1A] border border-[#F3EBDD]/10 flex items-center justify-center text-[#F3EBDD] cursor-pointer"
                     >
                         <ArrowLeft className="w-5 h-5" />
                     </button>
                     <div>
-                        <h2 className="font-heading text-lg tracking-wide text-[#F3EBDD] uppercase leading-none">Siparişim</h2>
+                        <h2 className="font-heading text-lg tracking-wide text-[#F3EBDD] uppercase leading-none">{t('menu.myOrder')}</h2>
                         <p className="text-xs text-[#A6A277] mt-1">
-                            {activeOrder.table_number} · Sipariş #{activeOrder.id}
+                            {t('status.subtitle', { table: tableLabel(activeOrder.table_number, t), id: activeOrder.id })}
                         </p>
                     </div>
                 </div>
@@ -58,9 +62,9 @@ export const OrderStatusModal = ({ onClose }) => {
                     <div className="bg-[#1E1C1A] border border-[#9A2A38]/60 rounded-[16px] p-5 mb-5 flex gap-3">
                         <XCircle className="w-6 h-6 text-[#9A2A38] shrink-0" />
                         <div>
-                            <h3 className="text-[15px] font-semibold text-[#F3EBDD]">Sipariş onaylanmadı</h3>
+                            <h3 className="text-[15px] font-semibold text-[#F3EBDD]">{t('status.rejectedTitle')}</h3>
                             <p className="text-sm text-[#B5AEA3] mt-1 leading-relaxed">
-                                Garsonumuz siparişinizi onaylayamadı (ör. ürün kalmamış olabilir). Masanıza gelip bilgi verecek.
+                                {t('status.rejectedText')}
                             </p>
                         </div>
                     </div>
@@ -86,9 +90,9 @@ export const OrderStatusModal = ({ onClose }) => {
                                         </div>
                                         <div>
                                             <h4 className={`text-[15px] font-semibold ${isDone || isCurrent ? 'text-[#F3EBDD]' : 'text-[#B5AEA3]/60'}`}>
-                                                {st.title}
+                                                {t(`status.steps.${st.status}`)[0]}
                                             </h4>
-                                            <p className="text-xs text-[#B5AEA3] mt-0.5">{st.desc}</p>
+                                            <p className="text-xs text-[#B5AEA3] mt-0.5">{t(`status.steps.${st.status}`)[1]}</p>
                                         </div>
                                     </li>
                                 );
@@ -99,16 +103,16 @@ export const OrderStatusModal = ({ onClose }) => {
 
                 {/* Sipariş özeti */}
                 <div className="bg-[#1E1C1A] border border-[rgba(243,235,221,0.08)] rounded-[16px] p-5 space-y-3 mb-5">
-                    <h3 className="text-xs font-semibold text-[#A6A277] uppercase tracking-wider">Sipariş Özeti</h3>
+                    <h3 className="text-xs font-semibold text-[#A6A277] uppercase tracking-wider">{t('status.summary')}</h3>
                     <div className="space-y-2.5">
                         {activeOrder.items?.map((item) => (
                             <div key={item.id} className="flex items-start justify-between gap-3 text-sm">
                                 <div className="min-w-0">
                                     <span className="text-[#F3EBDD]">
-                                        {item.quantity}× {item.product?.name || 'Ürün'}
+                                        {item.quantity}× {item.product ? localizeProduct(item.product, lang).name : t('product.item')}
                                     </span>
-                                    <span className="text-[#A6A277] ml-1.5">{item.size}</span>
-                                    {item.notes && <div className="text-xs text-[#B5AEA3]">Not: {item.notes}</div>}
+                                    <span className="text-[#A6A277] ml-1.5">{t(`size.${item.size}`, null, item.size)}</span>
+                                    {item.notes && <div className="text-xs text-[#B5AEA3]">{t('common.note', { note: item.notes })}</div>}
                                 </div>
                                 <span className="text-[#F3EBDD] tabular-nums shrink-0">
                                     {formatPrice(Number(item.price) * item.quantity)}
@@ -117,17 +121,17 @@ export const OrderStatusModal = ({ onClose }) => {
                         ))}
                     </div>
                     <div className="pt-3 border-t border-[#F3EBDD]/10 flex items-center justify-between">
-                        <span className="text-sm text-[#B5AEA3]">Toplam</span>
+                        <span className="text-sm text-[#B5AEA3]">{t('common.total')}</span>
                         <span className="font-heading text-lg text-[#F3EBDD] tabular-nums">{formatPrice(activeOrder.total_amount)}</span>
                     </div>
-                    <p className="text-xs text-[#B5AEA3]/80">Ödeme masada yapılır.</p>
+                    <p className="text-xs text-[#B5AEA3]/80">{t('status.payAtTable')}</p>
                 </div>
 
                 <button
                     onClick={isRejected ? dismissRejected : onClose}
                     className="w-full h-12 rounded-full bg-[#1E1C1A] hover:bg-[#252320] border border-[#F3EBDD]/15 text-[#F3EBDD] text-sm font-medium transition-colors cursor-pointer"
                 >
-                    {isRejected ? 'Tamam' : 'Menüye dön'}
+                    {isRejected ? t('common.ok') : t('cart.backToMenu')}
                 </button>
             </div>
         </div>

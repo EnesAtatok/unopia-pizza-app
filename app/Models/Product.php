@@ -12,6 +12,7 @@ class Product extends Model
         'name',
         'description',
         'ingredients',
+        'translations',
         'allergens',
         'calories',
         'sizes',
@@ -25,6 +26,7 @@ class Product extends Model
     ];
 
     protected $casts = [
+        'translations' => 'array',
         'allergens' => 'array',
         'calories' => 'array',
         'sizes' => 'array',
@@ -34,6 +36,17 @@ class Product extends Model
         'is_visible' => 'boolean',
         'price' => 'decimal:2',
     ];
+
+    /** QR menü dilleri (tr asıl alanlar, diğerleri translations sütununda) */
+    public const LOCALES = ['tr', 'en', 'bg', 'el'];
+
+    /** Etkin dildeki ad (çevirisi yoksa Türkçe ad) — müşteriye giden mesajlarda kullanılır */
+    public function localizedName(): string
+    {
+        $locale = app()->getLocale();
+
+        return $locale !== 'tr' && !empty($this->translations[$locale]['name']) ? $this->translations[$locale]['name'] : $this->name;
+    }
 
     public function category()
     {

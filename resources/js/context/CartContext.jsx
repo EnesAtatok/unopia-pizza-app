@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { apiService } from '../api';
 import { priceForSize } from '../productImage';
+import { useLang } from '../i18n/LangContext';
 
 const CartContext = createContext();
 
@@ -38,6 +39,8 @@ export const CartProvider = ({ children }) => {
     const [tableNumber, setTableNumber] = useState(() => sessionStorage.getItem('unopia_table'));
     const [tableError, setTableError] = useState(null);
 
+    // Dil değişince yeniden sorgulanır: geçersiz QR uyarısı sunucudan seçilen dilde gelir
+    const { lang, t } = useLang();
     useEffect(() => {
         if (!tableToken) return;
         apiService.resolveTable(tableToken)
@@ -48,14 +51,9 @@ export const CartProvider = ({ children }) => {
             .catch((err) => {
                 setTableNumber(null);
                 sessionStorage.removeItem('unopia_table');
-                sessionStorage.removeItem('unopia_table_token');
-                setTableError(
-                    err.response?.status === 404
-                        ? err.response.data?.message
-                        : 'Masa bilgisi alınamadı. Lütfen bağlantınızı kontrol edip sayfayı yenileyin.'
-                );
+                setTableError(err.response?.status === 404 ? err.response.data?.message : t('table.loadError'));
             });
-    }, [tableToken]);
+    }, [tableToken, lang]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const [activeOrder, setActiveOrder] = useState(() => {
         try {

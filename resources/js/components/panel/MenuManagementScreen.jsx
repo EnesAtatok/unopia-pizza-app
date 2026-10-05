@@ -1,10 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Pencil, X, Upload, RefreshCw, EyeOff, Eye } from 'lucide-react';
+import { Plus, Pencil, X, Upload, RefreshCw, EyeOff, Eye, Languages, Trash2, Check } from 'lucide-react';
 import { apiService, errorMessage } from '../../api';
 import { FlowLines } from '../common/Icons';
+import { Flag } from '../common/Flags';
 import { getProductImage, formatPrice, getDefaultSize, priceForSize, productDisplayName } from '../../productImage';
 
 const ALLERGENS = ['Gluten', 'Süt', 'Yumurta', 'Fındık', 'Ceviz', 'Susam', 'Soya'];
+
+// QR menü çeviri dilleri (Türkçe asıl alanlardır; boş bırakılan çeviri müşteriye Türkçe gösterilir)
+const TRANSLATION_LANGS = [
+    ['en', 'İngilizce'],
+    ['bg', 'Bulgarca'],
+    ['el', 'Yunanca'],
+];
+const emptyTranslations = (fields, source = {}) =>
+    Object.fromEntries(TRANSLATION_LANGS.map(([code]) => [code, Object.fromEntries(fields.map((f) => [f, source?.[code]?.[f] ?? '']))]));
+const PRODUCT_TR_FIELDS = ['name', 'description', 'ingredients'];
 
 const emptyForm = (categoryId) => ({
     id: null,
@@ -17,6 +28,7 @@ const emptyForm = (categoryId) => ({
     allergens: [],
     is_vegetarian: false,
     calories: { portion: '', slice: '' },
+    translations: emptyTranslations(PRODUCT_TR_FIELDS),
     imageFile: null,
     imagePreview: null,
 });
@@ -32,6 +44,7 @@ const toForm = (p) => ({
     allergens: Array.isArray(p.allergens) ? p.allergens : [],
     is_vegetarian: !!p.is_vegetarian,
     calories: { portion: p.calories?.portion ?? '', slice: p.calories?.slice ?? '' },
+    translations: emptyTranslations(PRODUCT_TR_FIELDS, p.translations),
     imageFile: null,
     imagePreview: getProductImage(p),
 });
@@ -52,8 +65,28 @@ const ProductForm = ({ initial, categories, onCancel, onSaved, onCategoryCreated
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
     const [newCategory, setNewCategory] = useState('');
+    const [trLang, setTrLang] = useState('en');
+    // Reçete: 1 adet orta boy için hammadde miktarları; sipariş onaylanınca stoktan düşülür
+    const [materials, setMaterials] = useState([]);
+    const [recipe, setRecipe] = useState([]);
+    const [recipeReady, setRecipeReady] = useState(false);
+
+    useEffect(() => {
+        Promise.all([apiService.getStock(), initial.id ? apiService.getRecipe(initial.id) : []])
+            .then(([mats, items]) => {
+                setMaterials(mats);
+                setRecipe(items.map((i) => ({ raw_material_id: i.raw_material_id, quantity: i.quantity })));
+                setRecipeReady(true);
+            })
+            .catch((err) => setError(errorMessage(err, 'Reçete alınamadı.')));
+    }, [initial.id]);
+
+    const materialById = Object.fromEntries(materials.map((m) => [m.id, m]));
+    const setRecipeRow = (i, patch) => setRecipe((rows) => rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
 
     const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+    const setTr = (field, value) =>
+        setForm((f) => ({ ...f, translations: { ...f.translations, [trLang]: { ...f.translations[trLang], [field]: value } } }));
 
     const handleImage = (e) => {
         const file = e.target.files?.[0];
@@ -90,14 +123,23 @@ const ProductForm = ({ initial, categories, onCancel, onSaved, onCategoryCreated
         data.append('allergens', JSON.stringify(form.allergens));
         data.append('calories', JSON.stringify(form.calories));
         data.append('is_vegetarian', form.is_vegetarian ? '1' : '0');
+        data.append('translations', JSON.stringify(form.translations));
         if (form.imageFile) data.append('image', form.imageFile);
 
+        let saved = null;
         try {
-            const saved = await apiService.saveProduct(form.id, data);
+            saved = await apiService.saveProduct(form.id, data);
+            // Reçete yüklenemediyse dokunma (mevcut reçete silinmesin)
+            if (recipeReady) {
+                await apiService.saveRecipe(saved.id, recipe.filter((r) => r.raw_material_id && Number(r.quantity) > 0));
+            }
             onSaved(saved);
         } catch (err) {
+            // Ürün kaydedildi ama reçete kaydedilemedi: tekrar denemede yeni ürün oluşmasın
+            if (saved) set('id', saved.id);
             const errors = err.response?.data?.errors;
-            setError(errors ? Object.values(errors).flat().join(' ') : errorMessage(err, 'Kaydedilemedi.'));
+            const msg = errors ? Object.values(errors).flat().join(' ') : errorMessage(err, 'Kaydedilemedi.');
+            setError(saved ? `Ürün kaydedildi ama reçete kaydedilemedi: ${msg}` : msg);
         } finally {
             setSaving(false);
         }
@@ -170,6 +212,42 @@ const ProductForm = ({ initial, categories, onCancel, onSaved, onCategoryCreated
                         <textarea maxLength={500} rows={2} value={form.ingredients} onChange={(e) => set('ingredients', e.target.value)} className={`${inputCls} h-auto py-2.5`} />
                     </Field>
 
+                    {/* QR menü çevirileri: boş bırakılan alan müşteriye Türkçe gösterilir */}
+                    <div className="rounded-[12px] border border-[#6E6B45]/30 bg-[#0D0C0B]/60 p-3.5 space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="flex items-center gap-2 text-sm text-[#F3EBDD]">
+                                <Languages className="w-4 h-4 text-[#A6A277]" />
+                                QR menü çevirileri
+                            </span>
+                            <div className="flex gap-1 p-1 bg-[#131210] rounded-[10px] border border-[#6E6B45]/30">
+                                {TRANSLATION_LANGS.map(([code, label]) => (
+                                    <button
+                                        key={code}
+                                        type="button"
+                                        onClick={() => setTrLang(code)}
+                                        aria-pressed={trLang === code}
+                                        className={`min-h-[36px] px-2.5 rounded-[8px] text-xs flex items-center gap-1.5 cursor-pointer ${
+                                            trLang === code ? 'bg-[#26231F] text-[#F3EBDD] font-semibold ring-1 ring-[#A6A277]/40' : 'text-[#B5AEA3] hover:text-[#F3EBDD]'
+                                        }`}
+                                    >
+                                        <Flag lang={code} className="w-5 h-[13px]" />
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <p className="text-xs text-[#B5AEA3]/80">İsteğe bağlı. Boş bırakılan alan müşteriye Türkçe gösterilir.</p>
+                        <Field label="Ürün adı">
+                            <input maxLength={80} value={form.translations[trLang].name} onChange={(e) => setTr('name', e.target.value)} placeholder={form.name} className={inputCls} />
+                        </Field>
+                        <Field label="Kısa açıklama">
+                            <input maxLength={255} value={form.translations[trLang].description} onChange={(e) => setTr('description', e.target.value)} placeholder={form.description} className={inputCls} />
+                        </Field>
+                        <Field label="Malzemeler">
+                            <textarea maxLength={500} rows={2} value={form.translations[trLang].ingredients} onChange={(e) => setTr('ingredients', e.target.value)} placeholder={form.ingredients} className={`${inputCls} h-auto py-2.5`} />
+                        </Field>
+                    </div>
+
                     <div>
                         <span className="block text-sm text-[#B5AEA3] mb-1.5">Fiyatlar (₺) — tek boylu üründe yalnızca "Orta"yı doldurun</span>
                         <div className="grid grid-cols-3 gap-2">
@@ -185,6 +263,76 @@ const ProductForm = ({ initial, categories, onCancel, onSaved, onCategoryCreated
                                 </Field>
                             ))}
                         </div>
+                    </div>
+
+                    {/* Reçete: stok ekranındaki hammaddelerden düşülecek miktarlar */}
+                    <div className="rounded-[12px] border border-[#6E6B45]/30 bg-[#0D0C0B]/60 p-3.5 space-y-3">
+                        <div>
+                            <span className="block text-sm text-[#F3EBDD]">Reçete (stoktan düşülecek malzemeler)</span>
+                            <p className="text-xs text-[#B5AEA3]/80 mt-0.5">
+                                1 adet orta boy için miktar girin. Küçük boyda ×0,7, büyük boyda ×1,35 düşülür. Sipariş onaylanınca stoktan düşülür.
+                            </p>
+                        </div>
+
+                        {recipeReady && recipe.length === 0 && (
+                            <p className="text-sm text-[#B5AEA3]">Reçete yok — bu ürün satıldığında stoktan bir şey düşülmez.</p>
+                        )}
+
+                        {recipe.map((row, i) => {
+                            const mat = materialById[row.raw_material_id];
+                            return (
+                                <div key={i} className="space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <select
+                                            value={row.raw_material_id || ''}
+                                            onChange={(e) => setRecipeRow(i, { raw_material_id: Number(e.target.value) })}
+                                            aria-label="Hammadde"
+                                            className={`${inputCls} flex-1 min-w-0`}
+                                        >
+                                            <option value="" disabled>Hammadde seçin</option>
+                                            {materials.map((m) => (
+                                                <option key={m.id} value={m.id}>{m.name}</option>
+                                            ))}
+                                        </select>
+                                        <div className="w-24 shrink-0">
+                                            <input
+                                                type="number" min="0" step="any" inputMode="decimal"
+                                                value={row.quantity}
+                                                onChange={(e) => setRecipeRow(i, { quantity: e.target.value })}
+                                                aria-label="Miktar"
+                                                className={`${inputCls} tabular-nums`}
+                                            />
+                                        </div>
+                                        <span className="text-sm text-[#B5AEA3] w-9 shrink-0">{mat?.base_unit || ''}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setRecipe((rows) => rows.filter((_, j) => j !== i))}
+                                            className="h-11 px-3 rounded-[12px] bg-[#201E1B] border border-[#6E6B45]/35 text-sm text-[#F3EBDD] flex items-center gap-1.5 shrink-0 cursor-pointer"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                            Sil
+                                        </button>
+                                    </div>
+                                    {mat && (
+                                        <p className={`text-xs tabular-nums ${mat.is_out ? 'text-[#E07A88] font-semibold' : 'text-[#B5AEA3]/80'}`}>
+                                            {mat.is_out
+                                                ? `Uyarı: ${mat.name} stokta yok (0 ${mat.base_unit}). Bu ürün "Tükendi" görünür; stok ekranından Ekle ile stok girin.`
+                                                : `Stokta: ${Number(mat.current_stock).toLocaleString('tr-TR')} ${mat.base_unit}`}
+                                        </p>
+                                    )}
+                                </div>
+                            );
+                        })}
+
+                        <button
+                            type="button"
+                            disabled={!recipeReady}
+                            onClick={() => setRecipe((rows) => [...rows, { raw_material_id: '', quantity: '' }])}
+                            className="h-11 px-3 rounded-[12px] bg-[#201E1B] border border-[#6E6B45]/35 text-sm text-[#F3EBDD] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                        >
+                            <Plus className="w-4 h-4" />
+                            Hammadde ekle
+                        </button>
                     </div>
 
                     <div>
@@ -231,6 +379,96 @@ const ProductForm = ({ initial, categories, onCancel, onSaved, onCategoryCreated
                     </button>
                 </div>
             </form>
+        </div>
+    );
+};
+
+const smallBtnCls =
+    'min-h-[36px] px-3 rounded-[10px] bg-[#0F0E0D] border border-[#6E6B45]/35 hover:border-[#A6A277]/55 text-xs text-[#D9D1C3] hover:text-[#F3EBDD] flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50';
+
+// Kategori başlığı: ad, ürün sayısı, QR menü çevirisi ve silme
+const CategoryHeader = ({ category, count, accent, onUpdated, onDeleted }) => {
+    const [editing, setEditing] = useState(false);
+    const [names, setNames] = useState(() => emptyTranslations(['name'], category.translations));
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState(null);
+
+    const save = async () => {
+        setBusy(true);
+        setError(null);
+        try {
+            onUpdated(await apiService.updateCategory(category.id, { translations: names }));
+            setEditing(false);
+        } catch (err) {
+            setError(errorMessage(err, 'Çeviriler kaydedilemedi.'));
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const remove = async () => {
+        if (!confirm(`"${category.name}" kategorisi silinsin mi?`)) return;
+        setBusy(true);
+        setError(null);
+        try {
+            await apiService.deleteCategory(category.id);
+            onDeleted(category.id);
+        } catch (err) {
+            setError(errorMessage(err, 'Kategori silinemedi.'));
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-3">
+                <h3 className="flex items-center gap-3 text-base font-semibold text-[#F3EBDD]">
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${accent}`} />
+                    {category.name}
+                    <span className="text-xs font-normal text-[#B5AEA3] tabular-nums">{count} ürün</span>
+                </h3>
+                <span className="h-px flex-1 min-w-8 bg-gradient-to-r from-[#6E6B45]/40 to-transparent" />
+                <button type="button" onClick={() => setEditing((v) => !v)} className={smallBtnCls}>
+                    <Languages className="w-3.5 h-3.5" />
+                    Çeviri
+                </button>
+                <button
+                    type="button"
+                    onClick={remove}
+                    disabled={busy}
+                    title={count > 0 ? 'İçinde ürün olan kategori silinemez' : undefined}
+                    className={smallBtnCls}
+                >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Sil
+                </button>
+            </div>
+
+            {editing && (
+                <div className="rounded-[12px] border border-[#6E6B45]/30 bg-[#0D0C0B]/60 p-3 flex flex-wrap items-end gap-2">
+                    {TRANSLATION_LANGS.map(([code, label]) => (
+                        <label key={code} className="flex-1 min-w-[150px]">
+                            <span className="flex items-center gap-1.5 text-xs text-[#B5AEA3] mb-1">
+                                <Flag lang={code} className="w-5 h-[13px]" />
+                                {label}
+                            </span>
+                            <input
+                                maxLength={40}
+                                value={names[code].name}
+                                placeholder={category.name}
+                                onChange={(e) => setNames((n) => ({ ...n, [code]: { name: e.target.value } }))}
+                                className={inputCls}
+                            />
+                        </label>
+                    ))}
+                    <button type="button" onClick={save} disabled={busy} className={`${smallBtnCls} min-h-[44px] text-[#F3EBDD]`}>
+                        <Check className="w-4 h-4" />
+                        Kaydet
+                    </button>
+                </div>
+            )}
+
+            {error && <div className="px-3 py-2 rounded-[10px] bg-[#171513] border border-[#9A2A38]/50 text-sm text-[#F3EBDD]">{error}</div>}
         </div>
     );
 };
@@ -317,15 +555,27 @@ export const MenuManagementScreen = ({ onMenuChanged }) => {
 
             {categories.map((cat, catIndex) => {
                 const items = products.filter((p) => p.category_id === cat.id);
-                if (items.length === 0) return null;
                 return (
                     <section key={cat.id} className="relative space-y-2.5">
-                        {/* Kategori başlığı: nokta + ad + ince çizgi */}
-                        <h3 className="flex items-center gap-3 text-base font-semibold text-[#F3EBDD]">
-                            <span className={`w-2 h-2 rounded-full shrink-0 ${catIndex === 0 ? 'bg-[#A6A277]' : 'bg-[#9A2A38]'}`} />
-                            {cat.name}
-                            <span className="h-px w-24 bg-gradient-to-r from-[#6E6B45]/40 to-transparent" />
-                        </h3>
+                        {/* Kategori başlığı: nokta + ad + ürün sayısı + çeviri / sil */}
+                        <CategoryHeader
+                            category={cat}
+                            count={items.length}
+                            accent={catIndex === 0 ? 'bg-[#A6A277]' : 'bg-[#9A2A38]'}
+                            onUpdated={(updated) => {
+                                setCategories((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+                                onMenuChanged?.();
+                            }}
+                            onDeleted={(id) => {
+                                setCategories((prev) => prev.filter((c) => c.id !== id));
+                                onMenuChanged?.();
+                            }}
+                        />
+                        {items.length === 0 && (
+                            <p className="px-4 py-3 rounded-[12px] border border-dashed border-[#6E6B45]/30 text-sm text-[#B5AEA3]">
+                                Bu kategoride ürün yok.
+                            </p>
+                        )}
                         {items.map((p) => {
                             const img = getProductImage(p, 'thumb');
                             return (
@@ -396,6 +646,7 @@ export const MenuManagementScreen = ({ onMenuChanged }) => {
                     onSaved={(saved) => {
                         replace(saved);
                         setEditing(null);
+                        load(); // reçete stoğu bitmiş hammadde içeriyorsa ürün "Tükendi" olmuş olabilir
                     }}
                 />
             )}

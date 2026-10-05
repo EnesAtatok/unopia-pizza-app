@@ -4,9 +4,11 @@ import { AllergenIcon, VegetarianLeafIcon, HeroDrips } from '../common/Icons';
 import { useCart } from '../../context/CartContext';
 import { getSizeOptions, getDefaultSize, priceForSize, formatPrice, productDisplayName } from '../../productImage';
 import { ProductPhoto } from './ProductPhoto';
+import { useLang } from '../../i18n/LangContext';
 
 export const ProductDetailModal = ({ product, onClose }) => {
     const { addToCart } = useCart();
+    const { t } = useLang();
 
     const [selectedSize, setSelectedSize] = useState(() => getDefaultSize(product));
     const [quantity, setQuantity] = useState(1);
@@ -28,7 +30,7 @@ export const ProductDetailModal = ({ product, onClose }) => {
         <button
             onClick={onClose}
             className="absolute top-4 left-4 w-11 h-11 rounded-full bg-[#141312]/75 backdrop-blur-md border border-[#F3EBDD]/10 flex items-center justify-center text-[#F3EBDD] hover:bg-[#141312] transition-colors cursor-pointer z-10"
-            aria-label="Geri"
+            aria-label={t('detail.back')}
         >
             <ArrowLeft className="w-5 h-5" />
         </button>
@@ -77,7 +79,7 @@ export const ProductDetailModal = ({ product, onClose }) => {
                         {product.is_vegetarian && (
                             <span className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#6E6B45]/25 border border-[#6E6B45]/60 text-[#A6A277] text-xs font-semibold">
                                 <VegetarianLeafIcon className="w-3.5 h-3.5" />
-                                Vejetaryen
+                                {t('product.vegetarian')}
                             </span>
                         )}
                     </div>
@@ -97,7 +99,7 @@ export const ProductDetailModal = ({ product, onClose }) => {
                                             isSelected ? 'bg-[#7B1E2B] text-[#F3EBDD]' : 'text-[#B5AEA3] hover:text-[#F3EBDD]'
                                         }`}
                                     >
-                                        <div className="text-sm">{sz.label}</div>
+                                        <div className="text-sm">{t(`size.${sz.label}`, null, sz.label)}</div>
                                         <div className="font-heading text-base mt-0.5 text-[#F3EBDD] tabular-nums">{formatPrice(sz.price)}</div>
                                     </button>
                                 );
@@ -107,7 +109,7 @@ export const ProductDetailModal = ({ product, onClose }) => {
 
                     {product.ingredients && (
                         <div>
-                            <h4 className="font-heading text-lg text-[#F3EBDD] mb-1">Malzemeler</h4>
+                            <h4 className="font-heading text-lg text-[#F3EBDD] mb-1">{t('detail.ingredients')}</h4>
                             <p className="text-sm text-[#B5AEA3] leading-relaxed">{product.ingredients}</p>
                         </div>
                     )}
@@ -115,7 +117,7 @@ export const ProductDetailModal = ({ product, onClose }) => {
                     {/* Alerjen etiketleri (vejetaryen etiketi bunlardan ayrı, yukarıda) */}
                     {allergens.length > 0 && (
                         <div>
-                            <h4 className="font-heading text-lg text-[#F3EBDD] mb-2">Alerjenler</h4>
+                            <h4 className="font-heading text-lg text-[#F3EBDD] mb-2">{t('detail.allergens')}</h4>
                             <div className="flex flex-wrap gap-2">
                                 {allergens.map((alg) => (
                                     <span
@@ -123,7 +125,7 @@ export const ProductDetailModal = ({ product, onClose }) => {
                                         className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#6E6B45]/45 text-[#F3EBDD] text-sm"
                                     >
                                         <AllergenIcon name={alg} className="w-4 h-4" />
-                                        <span>{alg}</span>
+                                        <span>{t(`allergen.${alg}`, null, alg)}</span>
                                     </span>
                                 ))}
                             </div>
@@ -140,32 +142,32 @@ export const ProductDetailModal = ({ product, onClose }) => {
                                 <div className="flex-1 grid grid-cols-2 divide-x divide-[#F3EBDD]/10">
                                     {product.calories.portion != null && (
                                         <div className="pr-3">
-                                            <div className="text-xs text-[#B5AEA3]">Porsiyon</div>
+                                            <div className="text-xs text-[#B5AEA3]">{t('detail.portion')}</div>
                                             <div className="font-heading text-lg text-[#F3EBDD] tabular-nums">{product.calories.portion} kcal</div>
                                         </div>
                                     )}
                                     {product.calories.slice != null && (
                                         <div className="pl-3">
-                                            <div className="text-xs text-[#B5AEA3]">Dilim</div>
+                                            <div className="text-xs text-[#B5AEA3]">{t('detail.slice')}</div>
                                             <div className="font-heading text-lg text-[#F3EBDD] tabular-nums">{product.calories.slice} kcal</div>
                                         </div>
                                     )}
                                 </div>
                             </div>
-                            <div className="text-xs text-[#B5AEA3]/70 mt-1.5 ml-1">Değerler yaklaşıktır.</div>
+                            <div className="text-xs text-[#B5AEA3]/70 mt-1.5 ml-1">{t('detail.approx')}</div>
                         </div>
                     )}
 
                     {/* Not alanı */}
                     <div>
                         <label htmlFor="product-note" className="block font-heading text-lg text-[#F3EBDD] mb-2">
-                            Not
+                            {t('detail.note')}
                         </label>
                         <input
                             id="product-note"
                             type="text"
                             maxLength={200}
-                            placeholder="Örn: Fesleğen olmasın, az pişmiş olsun..."
+                            placeholder={t('detail.notePlaceholder')}
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             className="w-full h-12 px-4 bg-[#1E1C1A] border border-[rgba(243,235,221,0.08)] rounded-[14px] text-sm text-[#F3EBDD] placeholder-[#B5AEA3]/50 focus:outline-none focus:border-[#6E6B45]"
@@ -179,7 +181,7 @@ export const ProductDetailModal = ({ product, onClose }) => {
                         <button
                             type="button"
                             onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                            aria-label="Adet azalt"
+                            aria-label={t('qty.dec')}
                             className="w-11 h-11 rounded-full flex items-center justify-center text-[#F3EBDD] hover:bg-[#252320] cursor-pointer"
                         >
                             <Minus className="w-4 h-4" />
@@ -188,7 +190,7 @@ export const ProductDetailModal = ({ product, onClose }) => {
                         <button
                             type="button"
                             onClick={() => setQuantity(Math.min(20, quantity + 1))}
-                            aria-label="Adet artır"
+                            aria-label={t('qty.inc')}
                             className="w-11 h-11 rounded-full flex items-center justify-center text-[#F3EBDD] hover:bg-[#252320] cursor-pointer"
                         >
                             <Plus className="w-4 h-4" />
@@ -205,7 +207,7 @@ export const ProductDetailModal = ({ product, onClose }) => {
                                 : 'bg-[#7B1E2B] hover:bg-[#9A2A38] active:bg-[#9A2A38] text-[#F3EBDD] shadow-[#7B1E2B]/40'
                         }`}
                     >
-                        {addedSuccess ? 'Sepete eklendi' : `Sepete ekle · ${formatPrice(currentPrice * quantity)}`}
+                        {addedSuccess ? t('detail.added') : t('detail.add', { price: formatPrice(currentPrice * quantity) })}
                     </button>
                 </div>
             </div>

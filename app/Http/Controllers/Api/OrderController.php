@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\RawMaterial;
 use App\Models\WaiterCall;
 use App\Models\RestaurantTable;
 use App\Services\StockService;
@@ -31,7 +32,7 @@ class OrderController extends Controller
             'notes' => 'nullable|string|max:255',
             'client_ref' => 'nullable|string|max:40|alpha_dash',
         ], [
-            'items.max' => 'Bir siparişte en fazla :max farklı kalem olabilir.',
+            'items.max' => __('Bir siparişte en fazla :max farklı kalem olabilir.'),
         ]);
 
         $table = RestaurantTable::findActiveByToken($request->input('table_token'));
@@ -43,7 +44,7 @@ class OrderController extends Controller
             if ($existing) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Siparişiniz alındı, garson onayından sonra mutfağa iletilecek.',
+                    'message' => __('Siparişiniz alındı, garson onayından sonra mutfağa iletilecek.'),
                     'data' => $existing,
                 ]);
             }
@@ -64,7 +65,7 @@ class OrderController extends Controller
         } else {
             return response()->json([
                 'success' => false,
-                'message' => 'Masa doğrulanamadı. Lütfen masanızdaki QR kodu tekrar okutun.',
+                'message' => __('Masa doğrulanamadı. Lütfen masanızdaki QR kodu tekrar okutun.'),
             ], 422);
         }
 
@@ -72,7 +73,7 @@ class OrderController extends Controller
         if ($source === 'QR' && !$this->isOpenNow()) {
             return response()->json([
                 'success' => false,
-                'message' => sprintf('Şu an kapalıyız. Çalışma saatlerimiz %s – %s.', config('business.hours.open'), config('business.hours.close')),
+                'message' => __('Şu an kapalıyız. Çalışma saatlerimiz :open – :close.', ['open' => config('business.hours.open'), 'close' => config('business.hours.close')]),
             ], 422);
         }
 
@@ -80,7 +81,7 @@ class OrderController extends Controller
         if ($source === 'QR' && $qtyTotal > config('business.max_order_quantity')) {
             return response()->json([
                 'success' => false,
-                'message' => sprintf('Bir siparişte en fazla %d adet ürün olabilir. Daha büyük siparişler için garsonunuza başvurun.', config('business.max_order_quantity')),
+                'message' => __('Bir siparişte en fazla :max adet ürün olabilir. Daha büyük siparişler için garsonunuza başvurun.', ['max' => config('business.max_order_quantity')]),
             ], 422);
         }
 
@@ -90,7 +91,7 @@ class OrderController extends Controller
         if ($soldOut->isNotEmpty()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Şu ürün(ler) tükendi: ' . $soldOut->pluck('name')->join(', ') . '. Lütfen sepetinizden çıkarın.',
+                'message' => __('Şu ürün(ler) tükendi: :items. Lütfen sepetinizden çıkarın.', ['items' => $soldOut->map->localizedName()->join(', ')]),
             ], 422);
         }
 
@@ -102,7 +103,7 @@ class OrderController extends Controller
             if ($size === null) {
                 return response()->json([
                     'success' => false,
-                    'message' => "{$product->name} için geçersiz boy seçimi. Lütfen ürünü sepetinizden çıkarıp yeniden ekleyin.",
+                    'message' => __(':product için geçersiz boy seçimi. Lütfen ürünü sepetinizden çıkarıp yeniden ekleyin.', ['product' => $product->localizedName()]),
                 ], 422);
             }
             $lines[] = ['product' => $product, 'quantity' => (int) ($item['quantity'] ?? 1), 'size' => $size, 'notes' => $item['notes'] ?? null];
@@ -113,8 +114,9 @@ class OrderController extends Controller
         if ($short) {
             return response()->json([
                 'success' => false,
-                'message' => 'Stok yetersiz, şu ürün(ler) bu miktarda hazırlanamıyor: '
-                    . $this->productsUsing($lines, $short) . '. Lütfen adedi azaltın veya garsonunuza danışın.',
+                'message' => __('Stok yetersiz, şu ürün(ler) bu miktarda hazırlanamıyor: :items. Lütfen adedi azaltın veya garsonunuza danışın.', [
+                    'items' => $this->productsUsing($lines, $short),
+                ]),
             ], 422);
         }
 
@@ -127,7 +129,7 @@ class OrderController extends Controller
         if ($order === null) {
             return response()->json([
                 'success' => false,
-                'message' => 'Onay bekleyen siparişleriniz var. Garsonunuz onayladıktan sonra yeni sipariş verebilirsiniz.',
+                'message' => __('Onay bekleyen siparişleriniz var. Garsonunuz onayladıktan sonra yeni sipariş verebilirsiniz.'),
             ], 429);
         }
 
@@ -140,7 +142,7 @@ class OrderController extends Controller
         return response()->json([
             'success' => true,
             'message' => $order->status === Order::PENDING
-                ? 'Siparişiniz alındı, garson onayından sonra mutfağa iletilecek.'
+                ? __('Siparişiniz alındı, garson onayından sonra mutfağa iletilecek.')
                 : 'Sipariş masaya eklendi ve mutfağa iletildi.',
             'data' => $order,
         ]);
@@ -203,7 +205,7 @@ class OrderController extends Controller
         $order = Order::with('items.product')->find($id);
 
         if (!$table || !$order || $order->table_number !== $table->name) {
-            return response()->json(['success' => false, 'message' => 'Sipariş bulunamadı.'], 404);
+            return response()->json(['success' => false, 'message' => __('Sipariş bulunamadı.')], 404);
         }
 
         return response()->json(['success' => true, 'data' => $order]);
@@ -483,8 +485,27 @@ class OrderController extends Controller
                     'orders' => $pendingOrders,
                     'calls' => $pendingCalls,
                 ],
+                'stock_alerts' => $this->stockAlerts(),
             ],
         ]);
+    }
+
+    /**
+     * Stoğu biten (0 veya altı) ve bir reçetede kullanılan hammaddeler, etkilediği ürünlerle.
+     * Bu ürünler sipariş edilemez (otomatik "Tükendi"); personele uyarı olarak gösterilir.
+     */
+    private function stockAlerts(): array
+    {
+        return RawMaterial::with('recipeItems.product:id,name')
+            ->where('current_stock', '<=', 0.0005)
+            ->whereHas('recipeItems')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (RawMaterial $m) => [
+                'name' => $m->name,
+                'products' => $m->recipeItems->pluck('product.name')->filter()->unique()->values(),
+            ])
+            ->all();
     }
 
     /**
@@ -565,7 +586,7 @@ class OrderController extends Controller
         if (!$table) {
             return response()->json([
                 'success' => false,
-                'message' => 'Masa doğrulanamadı. Lütfen masanızdaki QR kodu tekrar okutun.',
+                'message' => __('Masa doğrulanamadı. Lütfen masanızdaki QR kodu tekrar okutun.'),
             ], 422);
         }
 
@@ -588,7 +609,7 @@ class OrderController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Garson çağrınız personele iletildi.',
+            'message' => __('Garson çağrınız personele iletildi.'),
             'data' => $call,
         ]);
     }
@@ -622,11 +643,11 @@ class OrderController extends Controller
     /** Yetmeyen hammaddeleri kullanan sepet ürünlerinin adları */
     private function productsUsing(array $lines, array $materialNames): string
     {
-        $ids = \App\Models\RawMaterial::whereIn('name', $materialNames)->pluck('id')->all();
+        $ids = RawMaterial::whereIn('name', $materialNames)->pluck('id')->all();
 
         return collect($lines)
             ->filter(fn ($l) => $l['product']->recipeItems->whereIn('raw_material_id', $ids)->isNotEmpty())
-            ->map(fn ($l) => $l['product']->name)
+            ->map(fn ($l) => $l['product']->localizedName())
             ->unique()
             ->join(', ');
     }

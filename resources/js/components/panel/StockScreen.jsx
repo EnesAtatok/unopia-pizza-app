@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, RefreshCw, Trash2, PackagePlus, ClipboardCheck, Flame, History, Package } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, PackagePlus, Flame, History, Package } from 'lucide-react';
 import { apiService, errorMessage } from '../../api';
 import { FlowLines } from '../common/Icons';
 import { formatPrice } from '../../productImage';
@@ -19,14 +19,11 @@ const inputCls =
     'h-11 px-3 bg-[#0D0C0B] border border-[#6E6B45]/35 rounded-[10px] text-sm text-[#F3EBDD] placeholder-[#B5AEA3]/50 focus:outline-none focus:border-[#A6A277]/70';
 const btnCls =
     'min-h-[40px] px-3.5 rounded-[10px] bg-[#0F0E0D] border border-[#6E6B45]/35 hover:border-[#A6A277]/55 text-sm text-[#F3EBDD] flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50';
-// Sayım: bordo çerçeveli (görseldeki gibi)
-const countBtnCls =
-    'min-h-[40px] px-3.5 rounded-[10px] bg-[#0F0E0D] border border-[#7B1E2B]/60 hover:border-[#9A2A38] hover:bg-[#1E1012] text-sm text-[#F3EBDD] flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50';
 const primaryCls =
     'min-h-[42px] px-5 rounded-[10px] bg-gradient-to-r from-[#7B1E2B] to-[#5A1520] hover:from-[#9A2A38] hover:to-[#7B1E2B] ring-1 ring-[#9A2A38]/50 shadow-[0_8px_24px_rgba(123,30,43,0.3)] text-sm font-semibold text-[#F3EBDD] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50';
 const cardCls = 'bg-gradient-to-r from-[#1A1815] to-[#121110] border border-[#6E6B45]/25 rounded-[14px]';
 
-// Satır altında açılan işlem formu: alış / sayım / fire
+// Satır altında açılan işlem formu: alış (Ekle) / fire
 const ActionForm = ({ material, action, onDone, onCancel }) => {
     const [qty, setQty] = useState('');
     const [cost, setCost] = useState('');
@@ -40,14 +37,9 @@ const ActionForm = ({ material, action, onDone, onCancel }) => {
         setBusy(true);
         setError(null);
         try {
-            let updated;
-            if (action === 'purchase') {
-                updated = await apiService.purchaseStock(material.id, { quantity: qty, total_cost: cost || null, description: note || null });
-            } else if (action === 'count') {
-                updated = await apiService.countStock(material.id, qty);
-            } else {
-                updated = await apiService.wasteStock(material.id, { quantity: qty, description: note || null });
-            }
+            const updated = action === 'purchase'
+                ? await apiService.purchaseStock(material.id, { quantity: qty, total_cost: cost || null, description: note || null })
+                : await apiService.wasteStock(material.id, { quantity: qty, description: note || null });
             onDone(updated);
         } catch (err) {
             setError(errorMessage(err, 'Kaydedilemedi.'));
@@ -56,12 +48,10 @@ const ActionForm = ({ material, action, onDone, onCancel }) => {
         }
     };
 
-    const qtyLabel = action === 'count' ? `Sayılan miktar (${UNIT_LABELS[unit]})` : `Miktar (${UNIT_LABELS[unit]})`;
-
     return (
         <form onSubmit={submit} className="mt-3 pt-3 border-t border-[#6E6B45]/20 flex flex-wrap items-end gap-2">
             <label className="flex flex-col gap-1">
-                <span className="text-xs text-[#B5AEA3]">{qtyLabel}</span>
+                <span className="text-xs text-[#B5AEA3]">Miktar ({UNIT_LABELS[unit]})</span>
                 <input required autoFocus type="number" min="0" step="any" value={qty} onChange={(e) => setQty(e.target.value)} className={`${inputCls} w-40 tabular-nums`} />
             </label>
             {action === 'purchase' && (
@@ -70,17 +60,10 @@ const ActionForm = ({ material, action, onDone, onCancel }) => {
                     <input type="number" min="0" step="any" value={cost} onChange={(e) => setCost(e.target.value)} className={`${inputCls} w-40 tabular-nums`} />
                 </label>
             )}
-            {action !== 'count' && (
-                <label className="flex flex-col gap-1 flex-1 min-w-[160px]">
-                    <span className="text-xs text-[#B5AEA3]">{action === 'purchase' ? 'Açıklama (ör. fatura no)' : 'Sebep'}</span>
-                    <input value={note} maxLength={150} onChange={(e) => setNote(e.target.value)} className={inputCls} />
-                </label>
-            )}
-            {action === 'count' && qty !== '' && (
-                <span className="text-sm text-[#B5AEA3] pb-3">
-                    Fark: {formatQty(Number(qty) - material.current_stock, unit)}
-                </span>
-            )}
+            <label className="flex flex-col gap-1 flex-1 min-w-[160px]">
+                <span className="text-xs text-[#B5AEA3]">{action === 'purchase' ? 'Açıklama (ör. fatura no)' : 'Sebep'}</span>
+                <input value={note} maxLength={150} onChange={(e) => setNote(e.target.value)} className={inputCls} />
+            </label>
             <button type="submit" disabled={busy} className={primaryCls}>Kaydet</button>
             <button type="button" onClick={onCancel} className={btnCls}>Vazgeç</button>
             {error && <div className="w-full text-sm text-[#F3EBDD]">{error}</div>}
@@ -119,19 +102,44 @@ const MaterialsTab = ({ materials, setMaterials }) => {
 
     return (
         <div className="space-y-2.5">
+            <form onSubmit={addMaterial} className="bg-[#131210]/80 border border-dashed border-[#6E6B45]/40 rounded-[14px] p-3.5 flex flex-wrap items-end gap-2">
+                <label className="flex flex-col gap-1 flex-1 min-w-[180px]">
+                    <span className="text-xs text-[#B5AEA3]">Yeni hammadde</span>
+                    <input required maxLength={80} value={newMat.name} onChange={(e) => setNewMat({ ...newMat, name: e.target.value })} placeholder="Örn: Fesleğen" className={inputCls} />
+                </label>
+                <label className="flex flex-col gap-1">
+                    <span className="text-xs text-[#B5AEA3]">Birim</span>
+                    <select value={newMat.base_unit} onChange={(e) => setNewMat({ ...newMat, base_unit: e.target.value })} className={`${inputCls} w-28`}>
+                        <option value="g">gram</option>
+                        <option value="ml">ml</option>
+                        <option value="adet">adet</option>
+                    </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                    <span className="text-xs text-[#B5AEA3]">Kritik seviye</span>
+                    <input type="number" min="0" step="any" value={newMat.critical_level} onChange={(e) => setNewMat({ ...newMat, critical_level: e.target.value })} className={`${inputCls} w-32 tabular-nums`} />
+                </label>
+                <button type="submit" className={primaryCls}>
+                    <Plus className="w-4 h-4" />
+                    Ekle
+                </button>
+            </form>
+
             {error && <div className="px-4 py-2.5 rounded-[12px] bg-[#171513] border border-[#F3EBDD]/15 text-sm text-[#F3EBDD]">{error}</div>}
 
-            {materials.map((m) => (
+            {materials.map((m) => {
+                const alert = m.is_out || m.is_critical;
+                return (
                 <div
                     key={m.id}
                     className={`group relative overflow-hidden ${cardCls} pl-5 pr-3 py-2.5 hover:border-[#A6A277]/40 transition-colors ${
-                        m.is_critical ? 'border-[#9A2A38]/45' : ''
+                        alert ? 'border-[#9A2A38]/45' : ''
                     }`}
                 >
-                    {/* Sol şerit: normalde koyu bordo, kritikte parlak bordo */}
+                    {/* Sol şerit: normalde koyu bordo, kritikte / bitince parlak bordo */}
                     <span
                         className={`absolute left-0 top-0 bottom-0 w-[5px] ${
-                            m.is_critical ? 'bg-[#C23A4B] shadow-[0_0_14px_rgba(194,58,75,0.7)]' : 'bg-[#7B1E2B]'
+                            alert ? 'bg-[#C23A4B] shadow-[0_0_14px_rgba(194,58,75,0.7)]' : 'bg-[#7B1E2B]'
                         }`}
                         aria-hidden="true"
                     />
@@ -147,11 +155,13 @@ const MaterialsTab = ({ materials, setMaterials }) => {
                         {/* Miktar kutusu */}
                         <div
                             className={`min-w-[104px] px-4 py-1.5 rounded-[10px] border flex flex-col items-center justify-center gap-1 ${
-                                m.is_critical ? 'bg-[#1A0F10] border-[#9A2A38]/60' : 'bg-[#0D0C0B] border-[#6E6B45]/30'
+                                alert ? 'bg-[#1A0F10] border-[#9A2A38]/60' : 'bg-[#0D0C0B] border-[#6E6B45]/30'
                             }`}
                         >
                             <div className="text-[15px] font-semibold text-[#F3EBDD] tabular-nums leading-tight">{formatQty(m.current_stock, m.base_unit)}</div>
-                            {m.is_critical && (
+                            {m.is_out ? (
+                                <div className="text-[11px] font-semibold text-[#F3EBDD] px-2 py-0.5 rounded-[6px] bg-[#C23A4B]">Stok bitti</div>
+                            ) : m.is_critical && (
                                 <div className="text-[11px] font-semibold text-[#F3EBDD] px-2 py-0.5 rounded-[6px] bg-[#7B1E2B]">Kritik seviyede</div>
                             )}
                         </div>
@@ -161,11 +171,7 @@ const MaterialsTab = ({ materials, setMaterials }) => {
                         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                             <button onClick={() => setOpen({ id: m.id, action: 'purchase' })} className={btnCls}>
                                 <PackagePlus className="w-4 h-4 text-[#A6A277]" />
-                                Alış
-                            </button>
-                            <button onClick={() => setOpen({ id: m.id, action: 'count' })} className={countBtnCls}>
-                                <ClipboardCheck className="w-4 h-4 text-[#D0596A]" />
-                                Sayım
+                                Ekle
                             </button>
                             <button onClick={() => setOpen({ id: m.id, action: 'waste' })} className={btnCls}>
                                 <Flame className="w-4 h-4 text-[#A6A277]" />
@@ -214,30 +220,8 @@ const MaterialsTab = ({ materials, setMaterials }) => {
                         </div>
                     )}
                 </div>
-            ))}
-
-            <form onSubmit={addMaterial} className="bg-[#131210]/80 border border-dashed border-[#6E6B45]/40 rounded-[14px] p-3.5 flex flex-wrap items-end gap-2">
-                <label className="flex flex-col gap-1 flex-1 min-w-[180px]">
-                    <span className="text-xs text-[#B5AEA3]">Yeni hammadde</span>
-                    <input required maxLength={80} value={newMat.name} onChange={(e) => setNewMat({ ...newMat, name: e.target.value })} placeholder="Örn: Fesleğen" className={inputCls} />
-                </label>
-                <label className="flex flex-col gap-1">
-                    <span className="text-xs text-[#B5AEA3]">Birim</span>
-                    <select value={newMat.base_unit} onChange={(e) => setNewMat({ ...newMat, base_unit: e.target.value })} className={`${inputCls} w-28`}>
-                        <option value="g">gram</option>
-                        <option value="ml">ml</option>
-                        <option value="adet">adet</option>
-                    </select>
-                </label>
-                <label className="flex flex-col gap-1">
-                    <span className="text-xs text-[#B5AEA3]">Kritik seviye</span>
-                    <input type="number" min="0" step="any" value={newMat.critical_level} onChange={(e) => setNewMat({ ...newMat, critical_level: e.target.value })} className={`${inputCls} w-32 tabular-nums`} />
-                </label>
-                <button type="submit" className={primaryCls}>
-                    <Plus className="w-4 h-4" />
-                    Ekle
-                </button>
-            </form>
+                );
+            })}
         </div>
     );
 };

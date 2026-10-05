@@ -9,6 +9,6 @@ class InsufficientStockException extends RuntimeException
     /** @param string[] $details */
     public function __construct(public readonly array $details)
     {
-        parent::__construct('Yetersiz stok: ' . implode(', ', $details) . '. Stok girişi veya sayım yapın.');
+        parent::__construct('Yetersiz stok: ' . implode(', ', $details) . '. Stok ekranından Ekle ile stok girin.');
     }
 }

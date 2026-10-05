@@ -2,8 +2,8 @@ import { LayoutGrid, UtensilsCrossed, Package, BarChart3, ChefHat, QrCode } from
 import { MANAGER_ROLES } from '../../context/AuthContext';
 
 // Brif: solda dar menü — Masalar, Menü, Stok, Raporlar. Mutfak ekranı ve QR kodlar ayrı grupta.
-// roles: sekmeyi görebilecek roller (boş = herkes). Yönetici tüm ekranları, garson masalar,
-// mutfak ekranı ve QR kodları görür. phoneLabel: telefondaki dar alt çubuk için kısa ad.
+// roles: sekmeyi görebilecek roller (boş = herkes). Yönetici tüm ekranları, garson yalnızca
+// masaları ve mutfak ekranını görür. phoneLabel: telefondaki dar alt çubuk için kısa ad.
 export const MAIN_TABS = [
     { id: 'tables', label: 'Masalar', icon: LayoutGrid },
     { id: 'menu', label: 'Menü', icon: UtensilsCrossed, roles: MANAGER_ROLES },
@@ -12,7 +12,7 @@ export const MAIN_TABS = [
 ];
 export const EXTRA_TABS = [
     { id: 'kitchen', label: 'Mutfak ekranı', phoneLabel: 'Mutfak', icon: ChefHat },
-    { id: 'qr', label: 'QR kodlar', phoneLabel: 'QR', icon: QrCode },
+    { id: 'qr', label: 'QR kodlar', phoneLabel: 'QR', icon: QrCode, roles: MANAGER_ROLES },
 ];
 
 export const ROLE_LABELS = { patron: 'Yönetici', mudur: 'Yönetici', garson: 'Garson', mutfak: 'Mutfak' };
