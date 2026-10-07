@@ -3,7 +3,7 @@ import { Volume2, VolumeX } from 'lucide-react';
 import { useLang } from '../../i18n/LangContext';
 
 /*
- * Açılış videosu (public/videos/intro.mp4, 16:9, ~10 sn; 1.5x hızda ~7 sn). Müşteri ilk girdiğinde oynar, bitince
+ * Açılış videosu (public/videos/intro.mp4, 16:9, ~10 sn; 2x hızda ~5 sn). Müşteri ilk girdiğinde oynar, bitince
  * karşılama ekranı açılır; aynı oturumda yalnızca bir kez gösterilir (app.jsx).
  * - Video ekrana TAM sığar, hiçbir yeri kırpılmaz (telefonda ekran genişliğinde, dikeyde ortada).
  *   Üst/alt boşluğu aynı videonun bulanık kopyası doldurur; video kenarları ona yumuşakça karışır.
@@ -12,8 +12,8 @@ import { useLang } from '../../i18n/LangContext';
  */
 const VIDEO_SRC = '/videos/intro.mp4';
 const POSTER_SRC = '/videos/intro-poster.jpg';
-const PLAYBACK_RATE = 1.5; // video 1.5x hızda oynar (~7 sn)
-const START_TIMEOUT_MS = 4000; // bu sürede oynamaya başlamazsa karşılama ekranına geçilir
+const PLAYBACK_RATE = 2; // video 2x hızda oynar (~5 sn): aç müşteri menüye çabuk ulaşsın
+const START_TIMEOUT_MS = 2500; // bu sürede oynamaya başlamazsa karşılama ekranına geçilir
 const EDGE_FADE = 'linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%)';
 
 export const OpeningAnimation = ({ onComplete }) => {
