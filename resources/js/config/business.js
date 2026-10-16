@@ -3,7 +3,7 @@
 export const BUSINESS = {
     name: 'Unopia Pizza Edirne',
     hours: { open: '11:00', close: '23:00' }, // YER TUTUCU — haftanın her günü aynı
-    whatsapp: '905300000000', // YER TUTUCU
+    whatsapp: '905071005605', // +90 507 100 56 05 (wa.me biçimi: ülke kodu + numara, boşluksuz)
     instagram: 'https://instagram.com/unopiapizza',
     googleReviews: 'https://www.google.com/search?q=Unopia+Pizza+Edirne#lrd=0x0:0x0,3,,,',
     maps: 'https://www.google.com/maps/search/?api=1&query=Unopia+Pizza+%C5%9E%C3%BCkr%C3%BCpa%C5%9Fa+Edirne',

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Pencil, X, Upload, RefreshCw, EyeOff, Eye, Languages, Trash2, Check } from 'lucide-react';
+import { Plus, Pencil, X, Upload, RefreshCw, EyeOff, Eye, Languages, Trash2, Check, ChefHat, Percent } from 'lucide-react';
 import { apiService, errorMessage } from '../../api';
 import { FlowLines } from '../common/Icons';
 import { Flag } from '../common/Flags';
-import { getProductImage, formatPrice, getDefaultSize, priceForSize, productDisplayName } from '../../productImage';
+import { ExtrasManager } from './ExtrasManager';
+import { getProductImage, formatPrice, getDefaultSize, priceForSize, productDisplayName, isPiecePricing, trPieceLabel } from '../../productImage';
 
 const ALLERGENS = ['Gluten', 'Süt', 'Yumurta', 'Fındık', 'Ceviz', 'Susam', 'Soya'];
 
@@ -15,18 +16,22 @@ const TRANSLATION_LANGS = [
 ];
 const emptyTranslations = (fields, source = {}) =>
     Object.fromEntries(TRANSLATION_LANGS.map(([code]) => [code, Object.fromEntries(fields.map((f) => [f, source?.[code]?.[f] ?? '']))]));
-const PRODUCT_TR_FIELDS = ['name', 'description', 'ingredients'];
+// Kısa açıklama sunucuda malzemelerden doldurulur (formda ayrı alanı yok)
+const PRODUCT_TR_FIELDS = ['name', 'ingredients', 'chef_note'];
 
 const emptyForm = (categoryId) => ({
     id: null,
     name: '',
     category_id: categoryId || '',
-    description: '',
     ingredients: '',
+    chef_note: '',
     price: '',
     sizes: { small: '', medium: '', large: '' },
+    pricing: 'size', // 'size' (Küçük / Orta / Büyük) | 'piece' (4'lü / 6'lı)
+    piece_counts: { small: '', medium: '', large: '' },
     allergens: [],
     is_vegetarian: false,
+    has_extras: false,
     calories: { portion: '', slice: '' },
     translations: emptyTranslations(PRODUCT_TR_FIELDS),
     imageFile: null,
@@ -37,12 +42,15 @@ const toForm = (p) => ({
     id: p.id,
     name: p.name,
     category_id: p.category_id,
-    description: p.description || '',
     ingredients: p.ingredients || '',
+    chef_note: p.chef_note || '',
     price: p.price,
     sizes: { small: p.sizes?.small ?? '', medium: p.sizes?.medium ?? '', large: p.sizes?.large ?? '' },
+    pricing: isPiecePricing(p) ? 'piece' : 'size',
+    piece_counts: { small: p.piece_counts?.small ?? '', medium: p.piece_counts?.medium ?? '', large: p.piece_counts?.large ?? '' },
     allergens: Array.isArray(p.allergens) ? p.allergens : [],
     is_vegetarian: !!p.is_vegetarian,
+    has_extras: !!p.has_extras,
     calories: { portion: p.calories?.portion ?? '', slice: p.calories?.slice ?? '' },
     translations: emptyTranslations(PRODUCT_TR_FIELDS, p.translations),
     imageFile: null,
@@ -60,39 +68,57 @@ const Field = ({ label, hint, children }) => (
 const inputCls =
     'w-full h-11 px-3 bg-[#0D0C0B] border border-[#6E6B45]/35 rounded-[12px] text-sm text-[#F3EBDD] placeholder-[#B5AEA3]/50 focus:outline-none focus:border-[#6E6B45]';
 
+// Telefon fotoğrafları 3-8 MB olur; sunucunun yükleme sınırına (PHP varsayılanı 2 MB) takılmasın diye
+// yüklemeden önce en uzun kenar 1600 px'e indirilir ve JPEG'e çevrilir (~300-600 KB).
+const MAX_IMAGE_SIDE = 1600;
+const shrinkImage = async (file) => {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(bitmap.width, bitmap.height));
+    // Zaten küçük ve hafifse olduğu gibi gönder
+    if (scale === 1 && file.size <= 1.5 * 1024 * 1024 && /^image\/(jpeg|png|webp)$/.test(file.type)) {
+        bitmap.close();
+        return file;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#FFFFFF'; // şeffaf PNG'de JPEG arka planı siyah olmasın
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+    if (!blob) throw new Error('canvas');
+    return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' });
+};
+
 const ProductForm = ({ initial, categories, onCancel, onSaved, onCategoryCreated }) => {
     const [form, setForm] = useState(initial);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
     const [newCategory, setNewCategory] = useState('');
     const [trLang, setTrLang] = useState('en');
-    // Reçete: 1 adet orta boy için hammadde miktarları; sipariş onaylanınca stoktan düşülür
-    const [materials, setMaterials] = useState([]);
-    const [recipe, setRecipe] = useState([]);
-    const [recipeReady, setRecipeReady] = useState(false);
-
-    useEffect(() => {
-        Promise.all([apiService.getStock(), initial.id ? apiService.getRecipe(initial.id) : []])
-            .then(([mats, items]) => {
-                setMaterials(mats);
-                setRecipe(items.map((i) => ({ raw_material_id: i.raw_material_id, quantity: i.quantity })));
-                setRecipeReady(true);
-            })
-            .catch((err) => setError(errorMessage(err, 'Reçete alınamadı.')));
-    }, [initial.id]);
-
-    const materialById = Object.fromEntries(materials.map((m) => [m.id, m]));
-    const setRecipeRow = (i, patch) => setRecipe((rows) => rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
-
     const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
     const setTr = (field, value) =>
         setForm((f) => ({ ...f, translations: { ...f.translations, [trLang]: { ...f.translations[trLang], [field]: value } } }));
 
-    const handleImage = (e) => {
+    const [preparingImage, setPreparingImage] = useState(false);
+
+    const handleImage = async (e) => {
         const file = e.target.files?.[0];
+        e.target.value = ''; // aynı dosya tekrar seçilebilsin
         if (!file) return;
-        set('imageFile', file);
-        set('imagePreview', URL.createObjectURL(file));
+        setPreparingImage(true);
+        setError(null);
+        try {
+            const prepared = await shrinkImage(file);
+            set('imageFile', prepared);
+            set('imagePreview', URL.createObjectURL(prepared));
+        } catch {
+            setError('Fotoğraf okunamadı. JPG, PNG veya WebP biçiminde bir fotoğraf seçin.');
+        } finally {
+            setPreparingImage(false);
+        }
     };
 
     const addCategory = async () => {
@@ -115,31 +141,31 @@ const ProductForm = ({ initial, categories, onCancel, onSaved, onCategoryCreated
         const data = new FormData();
         data.append('name', form.name.trim());
         data.append('category_id', form.category_id);
-        data.append('description', form.description);
         data.append('ingredients', form.ingredients);
+        data.append('chef_note', form.chef_note.trim());
         // Taban fiyat: girilmediyse orta boy fiyatı
-        data.append('price', form.price !== '' ? form.price : form.sizes.medium || 0);
-        data.append('sizes', JSON.stringify(form.sizes));
+        const isPiece = form.pricing === 'piece';
+        // Adetli üründe fiyatı olmayan seçeneğin adedi de gönderilmez
+        const sizes = isPiece
+            ? Object.fromEntries(Object.entries(form.sizes).map(([k, v]) => [k, form.piece_counts[k] !== '' ? v : '']))
+            : form.sizes;
+        // Taban fiyat: boyda orta boy, adette ilk seçenek
+        const basePrice = isPiece ? sizes.small || sizes.medium || sizes.large : sizes.medium || sizes.small || sizes.large;
+        data.append('price', form.price !== '' && !isPiece ? form.price : basePrice || 0);
+        data.append('sizes', JSON.stringify(sizes));
+        data.append('piece_counts', JSON.stringify(isPiece ? form.piece_counts : {}));
         data.append('allergens', JSON.stringify(form.allergens));
         data.append('calories', JSON.stringify(form.calories));
         data.append('is_vegetarian', form.is_vegetarian ? '1' : '0');
+        data.append('has_extras', form.has_extras ? '1' : '0');
         data.append('translations', JSON.stringify(form.translations));
         if (form.imageFile) data.append('image', form.imageFile);
 
-        let saved = null;
         try {
-            saved = await apiService.saveProduct(form.id, data);
-            // Reçete yüklenemediyse dokunma (mevcut reçete silinmesin)
-            if (recipeReady) {
-                await apiService.saveRecipe(saved.id, recipe.filter((r) => r.raw_material_id && Number(r.quantity) > 0));
-            }
-            onSaved(saved);
+            onSaved(await apiService.saveProduct(form.id, data));
         } catch (err) {
-            // Ürün kaydedildi ama reçete kaydedilemedi: tekrar denemede yeni ürün oluşmasın
-            if (saved) set('id', saved.id);
             const errors = err.response?.data?.errors;
-            const msg = errors ? Object.values(errors).flat().join(' ') : errorMessage(err, 'Kaydedilemedi.');
-            setError(saved ? `Ürün kaydedildi ama reçete kaydedilemedi: ${msg}` : msg);
+            setError(errors ? Object.values(errors).flat().join(' ') : errorMessage(err, 'Kaydedilemedi.'));
         } finally {
             setSaving(false);
         }
@@ -171,8 +197,8 @@ const ProductForm = ({ initial, categories, onCancel, onSaved, onCategoryCreated
                                     </span>
                                 )}
                             </div>
-                            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImage} className="sr-only" />
-                            <span className="block text-xs text-[#B5AEA3]/80 mt-1">Gerçek ürün fotoğrafı, en fazla 5 MB</span>
+                            <input type="file" accept="image/*" onChange={handleImage} disabled={preparingImage} className="sr-only" />
+                            <span className="block text-xs text-[#B5AEA3]/80 mt-1">{preparingImage ? 'Fotoğraf hazırlanıyor...' : 'Gerçek ürün fotoğrafı. Büyük fotoğraflar otomatik küçültülür.'}</span>
                         </label>
 
                         <div className="flex-1 space-y-3">
@@ -205,11 +231,19 @@ const ProductForm = ({ initial, categories, onCancel, onSaved, onCategoryCreated
                         </div>
                     </div>
 
-                    <Field label="Kısa açıklama (menü kartında)">
-                        <input maxLength={255} value={form.description} onChange={(e) => set('description', e.target.value)} className={inputCls} />
-                    </Field>
-                    <Field label="Malzemeler (ürün detayında)">
+                    <Field label="Malzemeler" hint="Menü kartındaki kısa açıklamada ve ürün detayında aynı metin gösterilir.">
                         <textarea maxLength={500} rows={2} value={form.ingredients} onChange={(e) => set('ingredients', e.target.value)} className={`${inputCls} h-auto py-2.5`} />
+                    </Field>
+                    <Field
+                        label={
+                            <span className="flex items-center gap-1.5">
+                                <ChefHat className="w-4 h-4 text-[#E8A15A]" />
+                                Şefin önerisi (isteğe bağlı)
+                            </span>
+                        }
+                        hint="QR menüde ürün detayında şef simgesiyle gösterilir. Boş bırakılırsa gösterilmez."
+                    >
+                        <input maxLength={160} value={form.chef_note} onChange={(e) => set('chef_note', e.target.value)} placeholder="Örn: Yanında ev yapımı limonata çok iyi gider" className={inputCls} />
                     </Field>
 
                     {/* QR menü çevirileri: boş bırakılan alan müşteriye Türkçe gösterilir */}
@@ -240,99 +274,84 @@ const ProductForm = ({ initial, categories, onCancel, onSaved, onCategoryCreated
                         <Field label="Ürün adı">
                             <input maxLength={80} value={form.translations[trLang].name} onChange={(e) => setTr('name', e.target.value)} placeholder={form.name} className={inputCls} />
                         </Field>
-                        <Field label="Kısa açıklama">
-                            <input maxLength={255} value={form.translations[trLang].description} onChange={(e) => setTr('description', e.target.value)} placeholder={form.description} className={inputCls} />
-                        </Field>
                         <Field label="Malzemeler">
                             <textarea maxLength={500} rows={2} value={form.translations[trLang].ingredients} onChange={(e) => setTr('ingredients', e.target.value)} placeholder={form.ingredients} className={`${inputCls} h-auto py-2.5`} />
                         </Field>
+                        <Field label="Şefin önerisi">
+                            <input maxLength={160} value={form.translations[trLang].chef_note} onChange={(e) => setTr('chef_note', e.target.value)} placeholder={form.chef_note} className={inputCls} />
+                        </Field>
                     </div>
 
-                    <div>
-                        <span className="block text-sm text-[#B5AEA3] mb-1.5">Fiyatlar (₺) — tek boylu üründe yalnızca "Orta"yı doldurun</span>
-                        <div className="grid grid-cols-3 gap-2">
-                            {[['small', 'Küçük'], ['medium', 'Orta'], ['large', 'Büyük']].map(([key, label]) => (
-                                <Field key={key} label={label}>
-                                    <input
-                                        type="number" min="0" step="1" inputMode="numeric"
-                                        value={form.sizes[key]}
-                                        required={key === 'medium'}
-                                        onChange={(e) => set('sizes', { ...form.sizes, [key]: e.target.value })}
-                                        className={`${inputCls} tabular-nums`}
-                                    />
-                                </Field>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Reçete: stok ekranındaki hammaddelerden düşülecek miktarlar */}
-                    <div className="rounded-[12px] border border-[#6E6B45]/30 bg-[#0D0C0B]/60 p-3.5 space-y-3">
-                        <div>
-                            <span className="block text-sm text-[#F3EBDD]">Reçete (stoktan düşülecek malzemeler)</span>
-                            <p className="text-xs text-[#B5AEA3]/80 mt-0.5">
-                                1 adet orta boy için miktar girin. Küçük boyda ×0,7, büyük boyda ×1,35 düşülür. Sipariş onaylanınca stoktan düşülür.
-                            </p>
+                    <div className="space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-sm text-[#B5AEA3]">Fiyatlandırma</span>
+                            <div className="flex gap-1 p-1 bg-[#131210] rounded-[10px] border border-[#6E6B45]/30">
+                                {[['size', 'Boy (Küçük / Orta / Büyük)'], ['piece', "Adet (4'lü / 6'lı)"]].map(([key, label]) => (
+                                    <button
+                                        key={key}
+                                        type="button"
+                                        onClick={() => set('pricing', key)}
+                                        aria-pressed={form.pricing === key}
+                                        className={`min-h-[36px] px-2.5 rounded-[8px] text-xs cursor-pointer ${
+                                            form.pricing === key ? 'bg-[#26231F] text-[#F3EBDD] font-semibold ring-1 ring-[#A6A277]/40' : 'text-[#B5AEA3] hover:text-[#F3EBDD]'
+                                        }`}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
-                        {recipeReady && recipe.length === 0 && (
-                            <p className="text-sm text-[#B5AEA3]">Reçete yok — bu ürün satıldığında stoktan bir şey düşülmez.</p>
-                        )}
-
-                        {recipe.map((row, i) => {
-                            const mat = materialById[row.raw_material_id];
-                            return (
-                                <div key={i} className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                        <select
-                                            value={row.raw_material_id || ''}
-                                            onChange={(e) => setRecipeRow(i, { raw_material_id: Number(e.target.value) })}
-                                            aria-label="Hammadde"
-                                            className={`${inputCls} flex-1 min-w-0`}
-                                        >
-                                            <option value="" disabled>Hammadde seçin</option>
-                                            {materials.map((m) => (
-                                                <option key={m.id} value={m.id}>{m.name}</option>
-                                            ))}
-                                        </select>
-                                        <div className="w-24 shrink-0">
+                        {form.pricing === 'size' ? (
+                            <>
+                                <span className="block text-xs text-[#B5AEA3]/80">Fiyatlar (₺) — tek boylu üründe yalnızca "Orta"yı doldurun</span>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[['small', 'Küçük'], ['medium', 'Orta'], ['large', 'Büyük']].map(([key, label]) => (
+                                        <Field key={key} label={label}>
                                             <input
-                                                type="number" min="0" step="any" inputMode="decimal"
-                                                value={row.quantity}
-                                                onChange={(e) => setRecipeRow(i, { quantity: e.target.value })}
-                                                aria-label="Miktar"
+                                                type="number" min="0" step="1" inputMode="numeric"
+                                                value={form.sizes[key]}
+                                                required={key === 'medium'}
+                                                onChange={(e) => set('sizes', { ...form.sizes, [key]: e.target.value })}
                                                 className={`${inputCls} tabular-nums`}
                                             />
-                                        </div>
-                                        <span className="text-sm text-[#B5AEA3] w-9 shrink-0">{mat?.base_unit || ''}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => setRecipe((rows) => rows.filter((_, j) => j !== i))}
-                                            className="h-11 px-3 rounded-[12px] bg-[#201E1B] border border-[#6E6B45]/35 text-sm text-[#F3EBDD] flex items-center gap-1.5 shrink-0 cursor-pointer"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                            Sil
-                                        </button>
-                                    </div>
-                                    {mat && (
-                                        <p className={`text-xs tabular-nums ${mat.is_out ? 'text-[#E07A88] font-semibold' : 'text-[#B5AEA3]/80'}`}>
-                                            {mat.is_out
-                                                ? `Uyarı: ${mat.name} stokta yok (0 ${mat.base_unit}). Bu ürün "Tükendi" görünür; stok ekranından Ekle ile stok girin.`
-                                                : `Stokta: ${Number(mat.current_stock).toLocaleString('tr-TR')} ${mat.base_unit}`}
-                                        </p>
-                                    )}
+                                        </Field>
+                                    ))}
                                 </div>
-                            );
-                        })}
-
-                        <button
-                            type="button"
-                            disabled={!recipeReady}
-                            onClick={() => setRecipe((rows) => [...rows, { raw_material_id: '', quantity: '' }])}
-                            className="h-11 px-3 rounded-[12px] bg-[#201E1B] border border-[#6E6B45]/35 text-sm text-[#F3EBDD] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                        >
-                            <Plus className="w-4 h-4" />
-                            Hammadde ekle
-                        </button>
+                            </>
+                        ) : (
+                            <>
+                                <span className="block text-xs text-[#B5AEA3]/80">
+                                    En fazla 3 seçenek. Tek seçenekli üründe yalnızca ilk satırı doldurun. Menüde "4'lü", "6'lı" diye gösterilir.
+                                </span>
+                                {[['small', 1], ['medium', 2], ['large', 3]].map(([key, no]) => (
+                                    <div key={key} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+                                        <Field label={`${no}. seçenek · adet`}>
+                                            <input
+                                                type="number" min="1" max="999" step="1" inputMode="numeric"
+                                                value={form.piece_counts[key]}
+                                                required={no === 1 || form.sizes[key] !== ''}
+                                                onChange={(e) => set('piece_counts', { ...form.piece_counts, [key]: e.target.value })}
+                                                placeholder={no === 1 ? 'Örn: 4' : no === 2 ? 'Örn: 6' : ''}
+                                                className={`${inputCls} tabular-nums`}
+                                            />
+                                        </Field>
+                                        <Field label="Fiyat (₺)">
+                                            <input
+                                                type="number" min="0" step="1" inputMode="numeric"
+                                                value={form.sizes[key]}
+                                                required={no === 1 || form.piece_counts[key] !== ''}
+                                                onChange={(e) => set('sizes', { ...form.sizes, [key]: e.target.value })}
+                                                className={`${inputCls} tabular-nums`}
+                                            />
+                                        </Field>
+                                        <span className="h-11 min-w-[52px] flex items-center text-sm font-semibold text-[#A6A277]">
+                                            {Number(form.piece_counts[key]) > 0 ? trPieceLabel(form.piece_counts[key]) : ''}
+                                        </span>
+                                    </div>
+                                ))}
+                            </>
+                        )}
                     </div>
 
                     <div>
@@ -362,11 +381,21 @@ const ProductForm = ({ initial, categories, onCancel, onSaved, onCategoryCreated
                         <span className="text-sm text-[#F3EBDD]">Vejetaryen</span>
                     </label>
 
+                    <label className="flex items-start gap-3 min-h-[44px] cursor-pointer">
+                        <input type="checkbox" checked={form.has_extras} onChange={(e) => set('has_extras', e.target.checked)} className="w-5 h-5 mt-0.5 accent-[#6E6B45]" />
+                        <span>
+                            <span className="block text-sm text-[#F3EBDD]">İlaveler gösterilsin</span>
+                            <span className="block text-xs text-[#B5AEA3]/80">
+                                QR menüde bu ürünün detayında ilave malzemeler ve fiyatları listelenir (menü ekranının altındaki "İlaveler" bölümünden düzenlenir).
+                            </span>
+                        </span>
+                    </label>
+
                     <div className="grid grid-cols-2 gap-2">
                         <Field label="Kalori · porsiyon (kcal)">
                             <input type="number" min="0" value={form.calories.portion} onChange={(e) => set('calories', { ...form.calories, portion: e.target.value })} className={`${inputCls} tabular-nums`} />
                         </Field>
-                        <Field label="Kalori · dilim (kcal)">
+                        <Field label="Kalori · dilim (kcal, isteğe bağlı)" hint="Boş bırakılırsa QR menüde yalnızca porsiyon kalorisi gösterilir.">
                             <input type="number" min="0" value={form.calories.slice} onChange={(e) => set('calories', { ...form.calories, slice: e.target.value })} className={`${inputCls} tabular-nums`} />
                         </Field>
                     </div>
@@ -374,8 +403,130 @@ const ProductForm = ({ initial, categories, onCancel, onSaved, onCategoryCreated
 
                 <div className="p-4 border-t border-[#6E6B45]/30 space-y-2">
                     {error && <div className="text-sm text-[#F3EBDD]">{error}</div>}
-                    <button type="submit" disabled={saving} className="w-full min-h-[48px] rounded-[12px] bg-[#7B1E2B] hover:bg-[#9A2A38] text-sm font-semibold text-[#F3EBDD] cursor-pointer disabled:opacity-50">
+                    <button type="submit" disabled={saving || preparingImage} className="w-full min-h-[48px] rounded-[12px] bg-[#7B1E2B] hover:bg-[#9A2A38] text-sm font-semibold text-[#F3EBDD] cursor-pointer disabled:opacity-50">
                         {saving ? 'Kaydediliyor...' : 'Kaydet'}
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+};
+
+// Toplu fiyat: backend ile aynı hesap (tam TL'ye yuvarlanır)
+const SIZE_SHORT = { small: 'K', medium: 'O', large: 'B' };
+const adjustPrice = (price, { mode, direction, value }) => {
+    const sign = direction === 'increase' ? 1 : -1;
+    const v = Number(value) || 0;
+    return Math.round(mode === 'percent' ? Number(price) * (1 + (sign * v) / 100) : Number(price) + sign * v);
+};
+const productPriceRows = (p) => {
+    const sizes = p.sizes && typeof p.sizes === 'object' ? Object.entries(p.sizes).filter(([, v]) => v !== null && v !== '') : [];
+    const label = (k) => (isPiecePricing(p) && p.piece_counts[k] ? trPieceLabel(p.piece_counts[k]) : SIZE_SHORT[k] || k);
+    return sizes.length > 0 ? sizes.map(([k, v]) => [label(k), v]) : [[null, p.price]];
+};
+
+const BulkPriceModal = ({ products, onCancel, onApplied }) => {
+    const [direction, setDirection] = useState('increase');
+    const [mode, setMode] = useState('percent');
+    const [value, setValue] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState(null);
+
+    const opts = { mode, direction, value };
+    const valid = Number(value) > 0;
+    const goesNonPositive = valid && products.some((p) => productPriceRows(p).some(([, v]) => adjustPrice(v, opts) <= 0));
+
+    const submit = async (e) => {
+        e.preventDefault();
+        if (!valid || goesNonPositive) return;
+        setSaving(true);
+        setError(null);
+        try {
+            onApplied(await apiService.bulkUpdatePrices({ ids: products.map((p) => p.id), mode, direction, value: Number(value) }));
+        } catch (err) {
+            setError(errorMessage(err, 'Fiyatlar güncellenemedi.'));
+            setSaving(false);
+        }
+    };
+
+    const segment = (current, setter, options) => (
+        <div className="grid grid-cols-2 gap-1 p-1 bg-[#0D0C0B] rounded-[12px] border border-[#6E6B45]/30">
+            {options.map(([key, label]) => (
+                <button
+                    key={key}
+                    type="button"
+                    onClick={() => setter(key)}
+                    aria-pressed={current === key}
+                    className={`min-h-[40px] rounded-[9px] text-sm cursor-pointer ${
+                        current === key ? 'bg-[#26231F] text-[#F3EBDD] font-semibold ring-1 ring-[#A6A277]/40' : 'text-[#B5AEA3] hover:text-[#F3EBDD]'
+                    }`}
+                >
+                    {label}
+                </button>
+            ))}
+        </div>
+    );
+
+    return (
+        <div className="fixed inset-0 z-50 bg-[#0D0C0B]/80 flex items-stretch md:items-center justify-center md:p-4">
+            <form onSubmit={submit} className="w-full md:max-w-lg bg-[#171513] md:border border-[#6E6B45]/35 md:rounded-[14px] h-full md:h-auto md:max-h-[92vh] flex flex-col">
+                <div className="p-4 pl-5 border-b border-[#6E6B45]/30 flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-[#F3EBDD]">Toplu fiyat · {products.length} ürün</h3>
+                    <button type="button" onClick={onCancel} className="min-h-[44px] px-3 rounded-[12px] bg-[#0D0C0B] border border-[#6E6B45]/30 flex items-center gap-1.5 text-sm text-[#B5AEA3] hover:text-[#F3EBDD] cursor-pointer">
+                        <X className="w-4 h-4" />
+                        Vazgeç
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                    {segment(direction, setDirection, [['increase', 'Zam'], ['decrease', 'İndirim']])}
+                    {segment(mode, setMode, [['percent', 'Yüzde (%)'], ['amount', 'Tutar (₺)']])}
+
+                    <Field label={mode === 'percent' ? 'Yüzde' : 'Tutar (₺)'} hint="Tüm boy fiyatlarına uygulanır, sonuç tam TL'ye yuvarlanır.">
+                        <div className="relative">
+                            <input
+                                type="number" min="0" step="any" inputMode="decimal" required autoFocus
+                                value={value}
+                                onChange={(e) => setValue(e.target.value)}
+                                placeholder={mode === 'percent' ? 'Örn: 10' : 'Örn: 25'}
+                                className={`${inputCls} tabular-nums pr-10`}
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[#B5AEA3]">{mode === 'percent' ? '%' : '₺'}</span>
+                        </div>
+                    </Field>
+
+                    {/* Önizleme: eski → yeni fiyat (K / O / B: küçük / orta / büyük boy) */}
+                    <div className="rounded-[12px] border border-[#6E6B45]/30 bg-[#0D0C0B]/60 divide-y divide-[#6E6B45]/20">
+                        {products.map((p) => (
+                            <div key={p.id} className="px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                                <span className="text-sm font-semibold text-[#F3EBDD] truncate">{p.name}</span>
+                                <span className="flex flex-wrap gap-x-3 text-xs tabular-nums text-[#B5AEA3]">
+                                    {productPriceRows(p).map(([label, v]) => {
+                                        const next = valid ? adjustPrice(v, opts) : null;
+                                        return (
+                                            <span key={label || 'base'}>
+                                                {label && <span className="text-[#A6A277]">{label} </span>}
+                                                {formatPrice(v)}
+                                                {next !== null && (
+                                                    <>
+                                                        {' → '}
+                                                        <span className={next <= 0 ? 'text-[#E07A88] font-semibold' : 'text-[#F3EBDD] font-semibold'}>{formatPrice(next)}</span>
+                                                    </>
+                                                )}
+                                            </span>
+                                        );
+                                    })}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="p-4 border-t border-[#6E6B45]/30 space-y-2">
+                    {goesNonPositive && <div className="text-sm text-[#E07A88]">Bazı fiyatlar 0 TL veya altına düşüyor. Daha küçük bir indirim girin.</div>}
+                    {error && <div className="text-sm text-[#F3EBDD]">{error}</div>}
+                    <button type="submit" disabled={saving || !valid || goesNonPositive} className="w-full min-h-[48px] rounded-[12px] bg-[#7B1E2B] hover:bg-[#9A2A38] text-sm font-semibold text-[#F3EBDD] cursor-pointer disabled:opacity-50">
+                        {saving ? 'Güncelleniyor...' : `${products.length} ürünün fiyatını güncelle`}
                     </button>
                 </div>
             </form>
@@ -387,7 +538,7 @@ const smallBtnCls =
     'min-h-[36px] px-3 rounded-[10px] bg-[#0F0E0D] border border-[#6E6B45]/35 hover:border-[#A6A277]/55 text-xs text-[#D9D1C3] hover:text-[#F3EBDD] flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50';
 
 // Kategori başlığı: ad, ürün sayısı, QR menü çevirisi ve silme
-const CategoryHeader = ({ category, count, accent, onUpdated, onDeleted }) => {
+const CategoryHeader = ({ category, count, accent, allSelected, onToggleAll, onUpdated, onDeleted }) => {
     const [editing, setEditing] = useState(false);
     const [names, setNames] = useState(() => emptyTranslations(['name'], category.translations));
     const [busy, setBusy] = useState(false);
@@ -428,6 +579,12 @@ const CategoryHeader = ({ category, count, accent, onUpdated, onDeleted }) => {
                     <span className="text-xs font-normal text-[#B5AEA3] tabular-nums">{count} ürün</span>
                 </h3>
                 <span className="h-px flex-1 min-w-8 bg-gradient-to-r from-[#6E6B45]/40 to-transparent" />
+                {count > 0 && (
+                    <button type="button" onClick={onToggleAll} aria-pressed={allSelected} className={smallBtnCls}>
+                        <Check className="w-3.5 h-3.5" />
+                        {allSelected ? 'Seçimi kaldır' : 'Tümünü seç'}
+                    </button>
+                )}
                 <button type="button" onClick={() => setEditing((v) => !v)} className={smallBtnCls}>
                     <Languages className="w-3.5 h-3.5" />
                     Çeviri
@@ -473,7 +630,7 @@ const CategoryHeader = ({ category, count, accent, onUpdated, onDeleted }) => {
     );
 };
 
-// Yalnızca yönetici açar (garson menü ekranını görmez)
+// Panel: menü yönetimi (ürünler, kategoriler, ilaveler, toplu fiyat)
 export const MenuManagementScreen = ({ onMenuChanged }) => {
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -481,6 +638,26 @@ export const MenuManagementScreen = ({ onMenuChanged }) => {
     const [error, setError] = useState(null);
     const [editing, setEditing] = useState(null);
     const [busyId, setBusyId] = useState(null);
+    // Toplu fiyat güncelleme için seçili ürünler
+    const [selected, setSelected] = useState(() => new Set());
+    const [bulkOpen, setBulkOpen] = useState(false);
+
+    const toggleSelected = (ids, on) =>
+        setSelected((prev) => {
+            const next = new Set(prev);
+            ids.forEach((id) => (on ? next.add(id) : next.delete(id)));
+            return next;
+        });
+    const selectedProducts = products.filter((p) => selected.has(p.id));
+
+    const openBulk = () => {
+        if (selectedProducts.length === 0) {
+            setError('Önce fiyatı değişecek ürünleri soldaki kutucuklardan seçin.');
+            return;
+        }
+        setError(null);
+        setBulkOpen(true);
+    };
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -506,6 +683,26 @@ export const MenuManagementScreen = ({ onMenuChanged }) => {
             return exists ? prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)) : [...prev, updated];
         });
         onMenuChanged?.();
+    };
+
+    const removeProduct = async (product) => {
+        if (!confirm(`"${product.name}" kalıcı olarak silinsin mi? Bu işlem geri alınamaz.\n\nMenüden geçici olarak kaldırmak için "Gizle"yi kullanın.`)) return;
+        setBusyId(product.id);
+        setError(null);
+        try {
+            await apiService.deleteProduct(product.id);
+            setProducts((prev) => prev.filter((p) => p.id !== product.id));
+            setSelected((prev) => {
+                const next = new Set(prev);
+                next.delete(product.id);
+                return next;
+            });
+            onMenuChanged?.();
+        } catch (err) {
+            setError(errorMessage(err, 'Ürün silinemedi.'));
+        } finally {
+            setBusyId(null);
+        }
     };
 
     const toggle = async (product, field) => {
@@ -536,7 +733,15 @@ export const MenuManagementScreen = ({ onMenuChanged }) => {
                         Ürün, fiyat, fotoğraf ve tükendi durumu
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        onClick={openBulk}
+                        title="Seçili ürünlere yüzde veya TL olarak zam / indirim"
+                        className="min-h-[46px] px-5 rounded-[12px] bg-[#131210]/90 border border-[#6E6B45]/35 text-sm text-[#D9D1C3] hover:text-[#F3EBDD] hover:border-[#A6A277]/50 flex items-center gap-2 cursor-pointer"
+                    >
+                        <Percent className="w-4 h-4" />
+                        Toplu fiyat{selectedProducts.length > 0 && ` (${selectedProducts.length})`}
+                    </button>
                     <button onClick={load} className="min-h-[46px] px-5 rounded-[12px] bg-[#131210]/90 border border-[#6E6B45]/35 text-sm text-[#D9D1C3] hover:text-[#F3EBDD] hover:border-[#A6A277]/50 flex items-center gap-2 cursor-pointer">
                         <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                         Yenile
@@ -562,6 +767,8 @@ export const MenuManagementScreen = ({ onMenuChanged }) => {
                             category={cat}
                             count={items.length}
                             accent={catIndex === 0 ? 'bg-[#A6A277]' : 'bg-[#9A2A38]'}
+                            allSelected={items.length > 0 && items.every((p) => selected.has(p.id))}
+                            onToggleAll={() => toggleSelected(items.map((p) => p.id), !items.every((p) => selected.has(p.id)))}
                             onUpdated={(updated) => {
                                 setCategories((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
                                 onMenuChanged?.();
@@ -586,6 +793,14 @@ export const MenuManagementScreen = ({ onMenuChanged }) => {
                                     {/* Sol şerit: satışta bordo, tükendi haki */}
                                     <span className={`absolute left-0 top-0 bottom-0 w-[5px] ${p.is_active ? 'bg-[#9A2A38]' : 'bg-[#8A8659]'}`} aria-hidden="true" />
 
+                                    <input
+                                        type="checkbox"
+                                        checked={selected.has(p.id)}
+                                        onChange={(e) => toggleSelected([p.id], e.target.checked)}
+                                        aria-label={`${p.name} toplu fiyat için seç`}
+                                        className="w-5 h-5 shrink-0 accent-[#9A2A38] cursor-pointer"
+                                    />
+
                                     {img ? (
                                         <img src={img} alt="" className="w-[68px] aspect-[1024/849] rounded-[10px] object-cover shrink-0 ring-1 ring-[#6E6B45]/30" />
                                     ) : (
@@ -597,6 +812,7 @@ export const MenuManagementScreen = ({ onMenuChanged }) => {
                                         <div className="text-[14px] font-semibold tracking-wide text-[#F3EBDD] truncate">{p.name}</div>
                                         <div className="text-sm text-[#D9D1C3] tabular-nums mt-0.5">
                                             {formatPrice(priceForSize(p, getDefaultSize(p)))}
+                                            {p.has_extras && <span className="text-[#E8A15A]"> · İlaveli</span>}
                                             {!p.is_visible && ' · Menüden kaldırıldı'}
                                         </div>
                                     </div>
@@ -630,12 +846,38 @@ export const MenuManagementScreen = ({ onMenuChanged }) => {
                                         <Pencil className="w-4 h-4" />
                                         Düzenle
                                     </button>
+                                    <button
+                                        onClick={() => removeProduct(p)}
+                                        disabled={busyId === p.id}
+                                        title="Ürünü kalıcı olarak sil"
+                                        aria-label={`${p.name} ürününü sil`}
+                                        className="min-h-[42px] px-3 rounded-[10px] bg-[#0F0E0D] border border-[#6E6B45]/35 hover:border-[#9A2A38] hover:bg-[#3A141A] text-sm text-[#D9D1C3] hover:text-[#F3EBDD] flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                        <span className="hidden md:inline">Sil</span>
+                                    </button>
                                 </div>
                             );
                         })}
                     </section>
                 );
             })}
+
+            {!loading && <ExtrasManager onChanged={onMenuChanged} />}
+
+            {bulkOpen && (
+                <BulkPriceModal
+                    products={selectedProducts}
+                    onCancel={() => setBulkOpen(false)}
+                    onApplied={(updated) => {
+                        const byId = Object.fromEntries(updated.map((u) => [u.id, u]));
+                        setProducts((prev) => prev.map((p) => (byId[p.id] ? { ...p, ...byId[p.id] } : p)));
+                        onMenuChanged?.();
+                        setSelected(new Set());
+                        setBulkOpen(false);
+                    }}
+                />
+            )}
 
             {editing && (
                 <ProductForm
@@ -646,7 +888,6 @@ export const MenuManagementScreen = ({ onMenuChanged }) => {
                     onSaved={(saved) => {
                         replace(saved);
                         setEditing(null);
-                        load(); // reçete stoğu bitmiş hammadde içeriyorsa ürün "Tükendi" olmuş olabilir
                     }}
                 />
             )}

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-// Müşteri ekranındaki katmanlar (menü, ürün detayı, sepet...) için telefonun geri tuşu:
+// Müşteri ekranındaki katmanlar (menü, ürün detayı) için telefonun geri tuşu:
 // en üstteki katmanı kapatır, uygulamadan çıkmaz.
 //
 // Geçmişte yalnızca tek bir "koruma" kaydı tutulur ve uygulama kendisi asla history.back()

@@ -3,7 +3,6 @@ import { ChevronRight, Star, MapPin } from 'lucide-react';
 import { BUSINESS, isOpenNow } from '../../config/business';
 import { InstagramIcon, WhatsAppIcon, KidPlayIcon, SauceDrips } from '../common/Icons';
 import { useLang } from '../../i18n/LangContext';
-import { tableLabel } from '../../i18n/localize';
 import { LanguagePicker } from './LanguagePicker';
 
 // label: sözlük anahtarı (marka adları her dilde aynı)
@@ -19,7 +18,7 @@ const LINKS = [
  * telefon çerçevesi ya da ekran görüntüsüne gömülü sahte durum çubuğu yoktur; telefonda tam ekran,
  * geniş ekranda ortada 430px'lik sütun olarak görünür.
  */
-export const WelcomeScreen = ({ onOpenMenu, tableNumber, tableError }) => {
+export const WelcomeScreen = ({ onOpenMenu }) => {
     const { t } = useLang();
     // Açık/kapalı durumu saate göre canlı hesaplanır
     const [open, setOpen] = useState(() => isOpenNow());
@@ -39,26 +38,24 @@ export const WelcomeScreen = ({ onOpenMenu, tableNumber, tableError }) => {
             </div>
 
             <div className="relative z-10 flex flex-col items-center px-4 pt-[max(3.5rem,calc(env(safe-area-inset-top)+2.5rem))]">
-                <img
-                    src="/images/unopia-logo-round.png"
-                    alt="UNOPIA"
-                    className="w-[132px] h-[132px] rounded-full shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
-                    draggable={false}
-                />
+                {/* Menüdeki asıl logo (şeffaf zemin) */}
+                <picture>
+                    <source srcSet="/images/unopia-logo.webp" type="image/webp" />
+                    <img
+                        src="/images/unopia-logo.png"
+                        alt="UNOPIA Pizza & Restaurant"
+                        width="520"
+                        height="291"
+                        className="w-[240px] h-auto drop-shadow-[0_10px_30px_rgba(0,0,0,0.55)]"
+                        draggable={false}
+                    />
+                </picture>
                 <p className="mt-5 text-[19px] text-[#F3EBDD] tracking-[0.01em] text-center">{t('welcome.tagline')}</p>
 
-                {/* Masa: yalnızca masadaki QR koddan gelir */}
-                {tableNumber && (
-                    <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#1E1C1A] border border-[#6E6B45]/70 text-[#A6A277] text-xs font-medium">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#A6A277] animate-pulse" />
-                        {t('welcome.greeting', { table: tableLabel(tableNumber, t) })}
-                    </div>
-                )}
-                {!tableNumber && tableError && (
-                    <p role="alert" className="mt-3 w-full px-3 py-2 rounded-[14px] bg-[#1E1C1A] border border-[#7B1E2B]/80 text-[#F3EBDD] text-xs leading-snug text-center">
-                        {tableError}
-                    </p>
-                )}
+                <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#1E1C1A] border border-[#6E6B45]/70 text-[#A6A277] text-xs font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#A6A277] animate-pulse" />
+                    {t('welcome.greeting')}
+                </div>
 
                 <button
                     type="button"

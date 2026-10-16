@@ -1,30 +1,23 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Plus, Minus, Flame } from 'lucide-react';
+import { ArrowLeft, Flame, ChefHat, Plus } from 'lucide-react';
 import { AllergenIcon, VegetarianLeafIcon, HeroDrips } from '../common/Icons';
-import { useCart } from '../../context/CartContext';
-import { getSizeOptions, getDefaultSize, priceForSize, formatPrice, productDisplayName } from '../../productImage';
+import { getSizeOptions, getDefaultSize, priceForSize, extraPriceForSize, isPiecePricing, formatPrice, productDisplayName } from '../../productImage';
+import { sizeOptionName } from '../../i18n/localize';
 import { ProductPhoto } from './ProductPhoto';
 import { useLang } from '../../i18n/LangContext';
 
-export const ProductDetailModal = ({ product, onClose }) => {
-    const { addToCart } = useCart();
-    const { t } = useLang();
+export const ProductDetailModal = ({ product, extras = [], onClose }) => {
+    const { t, lang } = useLang();
 
     const [selectedSize, setSelectedSize] = useState(() => getDefaultSize(product));
-    const [quantity, setQuantity] = useState(1);
-    const [notes, setNotes] = useState('');
-    const [addedSuccess, setAddedSuccess] = useState(false);
 
     // Yalnızca ürün için tanımlı boylar gösterilir (tek boylu üründe seçici gizlenir).
     const sizeOptions = getSizeOptions(product);
     const currentPrice = priceForSize(product, selectedSize);
     const allergens = Array.isArray(product.allergens) ? product.allergens : [];
-
-    const handleAddToCart = () => {
-        addToCart(product, selectedSize, quantity, notes.trim());
-        setAddedSuccess(true);
-        setTimeout(onClose, 350);
-    };
+    // Boş veya 0 girilen kalori gösterilmez
+    const hasPortionKcal = Number(product.calories?.portion) > 0;
+    const hasSliceKcal = Number(product.calories?.slice) > 0;
 
     const backButton = (
         <button
@@ -60,7 +53,7 @@ export const ProductDetailModal = ({ product, onClose }) => {
                     </div>
                 </ProductPhoto>
 
-                <div className="p-6 pt-9 space-y-6">
+                <div className="p-6 pt-9 pb-[max(1.5rem,env(safe-area-inset-bottom))] space-y-6">
                     {/* Ad, fiyat, açıklama, vejetaryen etiketi */}
                     <div>
                         <div className="flex items-start justify-between gap-3">
@@ -72,7 +65,8 @@ export const ProductDetailModal = ({ product, onClose }) => {
                             </span>
                         </div>
 
-                        {product.description && (
+                        {/* Kısa açıklama malzemelerle aynıysa aşağıda "Malzemeler" altında bir kez gösterilir */}
+                        {product.description && product.description !== product.ingredients && (
                             <p className="text-[15px] text-[#B5AEA3] leading-relaxed mt-2">{product.description}</p>
                         )}
 
@@ -99,7 +93,7 @@ export const ProductDetailModal = ({ product, onClose }) => {
                                             isSelected ? 'bg-[#7B1E2B] text-[#F3EBDD]' : 'text-[#B5AEA3] hover:text-[#F3EBDD]'
                                         }`}
                                     >
-                                        <div className="text-sm">{t(`size.${sz.label}`, null, sz.label)}</div>
+                                        <div className="text-sm">{sizeOptionName(sz, t, lang)}</div>
                                         <div className="font-heading text-base mt-0.5 text-[#F3EBDD] tabular-nums">{formatPrice(sz.price)}</div>
                                     </button>
                                 );
@@ -111,6 +105,49 @@ export const ProductDetailModal = ({ product, onClose }) => {
                         <div>
                             <h4 className="font-heading text-lg text-[#F3EBDD] mb-1">{t('detail.ingredients')}</h4>
                             <p className="text-sm text-[#B5AEA3] leading-relaxed">{product.ingredients}</p>
+                        </div>
+                    )}
+
+                    {/* İlaveler: fiyatlar seçili boya göre (küçük ×1, orta ×2, büyük ×3) */}
+                    {extras.length > 0 && (
+                        <div>
+                            <div className="flex items-baseline justify-between gap-3 mb-2">
+                                <h4 className="font-heading text-lg text-[#F3EBDD]">{t('detail.extras')}</h4>
+                                {sizeOptions.length > 1 && !isPiecePricing(product) && (
+                                    <span className="text-xs text-[#B5AEA3]">
+                                        {t('detail.extrasHint', { size: t(`size.${selectedSize}`, null, selectedSize) })}
+                                    </span>
+                                )}
+                            </div>
+                            <ul className="rounded-[16px] bg-[#1E1C1A] border border-[rgba(243,235,221,0.08)] divide-y divide-[#F3EBDD]/[0.06]">
+                                {extras.map((ex) => (
+                                    <li key={ex.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                                        <span className="flex items-center gap-2.5 min-w-0 text-sm text-[#D9D1C3]">
+                                            <Plus className="w-3.5 h-3.5 text-[#A6A277] shrink-0" aria-hidden="true" />
+                                            <span className="[overflow-wrap:anywhere]">{ex.name}</span>
+                                        </span>
+                                        <span className="font-heading text-base text-[#F3EBDD] tabular-nums shrink-0">
+                                            +{formatPrice(extraPriceForSize(ex, product, selectedSize))}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
+                    {/* Şefin önerisi: ürünün yanında iyi gidecek ek ürün / malzeme */}
+                    {product.chef_note && (
+                        <div className="relative overflow-hidden rounded-[16px] bg-gradient-to-r from-[#3A141A] to-[#1E1C1A] border border-[#9A2A38]/50 p-4 flex items-start gap-3.5">
+                            <div className="w-11 h-11 rounded-full bg-[#7B1E2B] ring-2 ring-[#9A2A38]/40 flex items-center justify-center text-[#F3EBDD] shrink-0">
+                                <ChefHat className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 font-heading text-lg text-[#F3EBDD] leading-tight">
+                                    {t('detail.chefPick')}
+                                    <Flame className="w-4 h-4 text-[#E8A15A]" aria-hidden="true" />
+                                </div>
+                                <p className="text-sm text-[#D9D1C3] leading-relaxed mt-0.5 [overflow-wrap:anywhere]">{product.chef_note}</p>
+                            </div>
                         </div>
                     )}
 
@@ -133,21 +170,22 @@ export const ProductDetailModal = ({ product, onClose }) => {
                     )}
 
                     {/* Kalori: porsiyon ve dilim başına; "Değerler yaklaşıktır" kartın altında */}
-                    {product.calories && (product.calories.portion || product.calories.slice) && (
+                    {(hasPortionKcal || hasSliceKcal) && (
                         <div>
                             <div className="bg-[#1E1C1A] border border-[rgba(243,235,221,0.08)] rounded-[16px] p-4 flex items-center gap-4">
                                 <div className="w-11 h-11 rounded-full border border-[#A6A277]/60 flex items-center justify-center text-[#A6A277] shrink-0">
                                     <Flame className="w-5 h-5" />
                                 </div>
-                                <div className="flex-1 grid grid-cols-2 divide-x divide-[#F3EBDD]/10">
-                                    {product.calories.portion != null && (
+                                {/* Dilim kalorisi isteğe bağlı: girilmediyse yalnızca porsiyon tam genişlikte */}
+                                <div className={`flex-1 grid ${hasPortionKcal && hasSliceKcal ? 'grid-cols-2 divide-x divide-[#F3EBDD]/10' : 'grid-cols-1'}`}>
+                                    {hasPortionKcal && (
                                         <div className="pr-3">
                                             <div className="text-xs text-[#B5AEA3]">{t('detail.portion')}</div>
                                             <div className="font-heading text-lg text-[#F3EBDD] tabular-nums">{product.calories.portion} kcal</div>
                                         </div>
                                     )}
-                                    {product.calories.slice != null && (
-                                        <div className="pl-3">
+                                    {hasSliceKcal && (
+                                        <div className={hasPortionKcal ? 'pl-3' : ''}>
                                             <div className="text-xs text-[#B5AEA3]">{t('detail.slice')}</div>
                                             <div className="font-heading text-lg text-[#F3EBDD] tabular-nums">{product.calories.slice} kcal</div>
                                         </div>
@@ -157,58 +195,6 @@ export const ProductDetailModal = ({ product, onClose }) => {
                             <div className="text-xs text-[#B5AEA3]/70 mt-1.5 ml-1">{t('detail.approx')}</div>
                         </div>
                     )}
-
-                    {/* Not alanı */}
-                    <div>
-                        <label htmlFor="product-note" className="block font-heading text-lg text-[#F3EBDD] mb-2">
-                            {t('detail.note')}
-                        </label>
-                        <input
-                            id="product-note"
-                            type="text"
-                            maxLength={200}
-                            placeholder={t('detail.notePlaceholder')}
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            className="w-full h-12 px-4 bg-[#1E1C1A] border border-[rgba(243,235,221,0.08)] rounded-[14px] text-sm text-[#F3EBDD] placeholder-[#B5AEA3]/50 focus:outline-none focus:border-[#6E6B45]"
-                        />
-                    </div>
-                </div>
-
-                {/* Adet + "Sepete ekle · ₺X" */}
-                <div className="sticky bottom-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] bg-[#141312]/95 backdrop-blur-md border-t border-[#F3EBDD]/10 mt-auto flex items-center gap-3">
-                    <div className="flex items-center gap-1 p-1 bg-[#1E1C1A] border border-[#F3EBDD]/10 rounded-full">
-                        <button
-                            type="button"
-                            onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                            aria-label={t('qty.dec')}
-                            className="w-11 h-11 rounded-full flex items-center justify-center text-[#F3EBDD] hover:bg-[#252320] cursor-pointer"
-                        >
-                            <Minus className="w-4 h-4" />
-                        </button>
-                        <span className="font-heading text-base w-6 text-center tabular-nums">{quantity}</span>
-                        <button
-                            type="button"
-                            onClick={() => setQuantity(Math.min(20, quantity + 1))}
-                            aria-label={t('qty.inc')}
-                            className="w-11 h-11 rounded-full flex items-center justify-center text-[#F3EBDD] hover:bg-[#252320] cursor-pointer"
-                        >
-                            <Plus className="w-4 h-4" />
-                        </button>
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={handleAddToCart}
-                        disabled={addedSuccess}
-                        className={`flex-1 h-[52px] px-5 rounded-full text-[15px] font-semibold flex items-center justify-center shadow-xl transition-colors cursor-pointer tabular-nums ${
-                            addedSuccess
-                                ? 'bg-[#6E6B45] text-[#F3EBDD]'
-                                : 'bg-[#7B1E2B] hover:bg-[#9A2A38] active:bg-[#9A2A38] text-[#F3EBDD] shadow-[#7B1E2B]/40'
-                        }`}
-                    >
-                        {addedSuccess ? t('detail.added') : t('detail.add', { price: formatPrice(currentPrice * quantity) })}
-                    </button>
                 </div>
             </div>
         </div>

@@ -74,7 +74,7 @@ export const KidPlayIcon = ({ className = "w-4 h-4" }) => (
     </svg>
 );
 
-// Ürün detay görselinin alt kenarından sarkan ince sos damlaları (mockup-product.jpg'deki gibi)
+// Ürün detay görselinin alt kenarından sarkan ince sos damlaları
 // [x, genişlik, uzunluk] — viewBox 430 genişliğinde
 const HERO_DRIPS = [
     [8, 5, 20], [22, 7, 34], [41, 4, 16], [63, 6, 28], [88, 4, 14], [112, 8, 40],
@@ -139,17 +139,6 @@ export const SauceDrips = ({ className = "" }) => (
     </svg>
 );
 
-// Panel masa kartı ikonu: masa ve iki yanında sandalye
-export const DiningTableIcon = ({ className = "w-5 h-5" }) => (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M6 9h12" />
-        <path d="M8 9v8M16 9v8" />
-        <path d="M3 7v10M3 13h3" />
-        <path d="M21 7v10M21 13h-3" />
-        <path d="M10 12h4" />
-    </svg>
-);
-
 // Panelin köşelerindeki ince akış çizgileri (dekoratif). tone: 'khaki' | 'bordo' | 'mix'
 export const FlowLines = ({ className = "", tone = 'mix' }) => {
     const colors = tone === 'khaki' ? ['#A6A277', '#6E6B45'] : tone === 'bordo' ? ['#9A2A38', '#7B1E2B'] : ['#9A2A38', '#A6A277'];
@@ -166,27 +155,4 @@ export const FlowLines = ({ className = "", tone = 'mix' }) => {
             ))}
         </svg>
     );
-};
-
-export const playDingSound = () => {
-    try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(1760, audioCtx.currentTime + 0.15);
-
-        gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
-
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.8);
-    } catch {
-        // Audio might be blocked before first user interaction
-    }
 };

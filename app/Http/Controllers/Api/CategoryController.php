@@ -27,7 +27,7 @@ class CategoryController extends Controller
      */
     public function store(Request $request)
     {
-        $businessId = $request->user()->business_id ?? 1;
+        $businessId = $request->user()?->business_id ?? 1;
 
         $data = $request->validate([
             'name' => [
@@ -73,7 +73,7 @@ class CategoryController extends Controller
 
     /**
      * Panel: kategoriyi sil. İçinde ürün (gizliler dahil) varsa silinmez: veritabanında ürünler
-     * kategoriye bağlıdır, silme ürünleri ve geçmiş adisyon kalemlerini de götürürdü.
+     * kategoriye bağlıdır, silme ürünleri de götürürdü.
      */
     public function destroy(Request $request, int $id)
     {
@@ -95,6 +95,6 @@ class CategoryController extends Controller
 
     private function findOwned(Request $request, int $id): Category
     {
-        return Category::where('business_id', $request->user()->business_id ?? 1)->findOrFail($id);
+        return Category::where('business_id', $request->user()?->business_id ?? 1)->findOrFail($id);
     }
 }

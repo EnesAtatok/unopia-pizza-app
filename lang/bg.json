@@ -1,17 +1,4 @@
 {
-    "Bir siparişte en fazla :max farklı kalem olabilir.": "Една поръчка може да съдържа най-много :max различни артикула.",
-    "Siparişiniz alındı, garson onayından sonra mutfağa iletilecek.": "Поръчката ви е приета и ще бъде изпратена в кухнята след потвърждение от сервитьора.",
-    "Masa doğrulanamadı. Lütfen masanızdaki QR kodu tekrar okutun.": "Не успяхме да потвърдим масата ви. Моля, сканирайте отново QR кода на масата.",
-    "Şu an kapalıyız. Çalışma saatlerimiz :open – :close.": "В момента сме затворени. Работно време: :open – :close.",
-    "Bir siparişte en fazla :max adet ürün olabilir. Daha büyük siparişler için garsonunuza başvurun.": "Една поръчка може да съдържа най-много :max броя. За по-големи поръчки се обърнете към сервитьора.",
-    "Şu ürün(ler) tükendi: :items. Lütfen sepetinizden çıkarın.": "Изчерпано: :items. Моля, премахнете ги от количката.",
-    ":product için geçersiz boy seçimi. Lütfen ürünü sepetinizden çıkarıp yeniden ekleyin.": "Невалиден размер за :product. Моля, премахнете продукта от количката и го добавете отново.",
-    "Stok yetersiz, şu ürün(ler) bu miktarda hazırlanamıyor: :items. Lütfen adedi azaltın veya garsonunuza danışın.": "Няма достатъчна наличност, за да приготвим това количество от: :items. Моля, намалете броя или попитайте сервитьора.",
-    "Onay bekleyen siparişleriniz var. Garsonunuz onayladıktan sonra yeni sipariş verebilirsiniz.": "Имате поръчки, които чакат потвърждение. Можете да направите нова поръчка, след като сервитьорът ги потвърди.",
-    "Sipariş bulunamadı.": "Поръчката не е намерена.",
-    "Garson çağrınız personele iletildi.": "Повикването ви е изпратено на персонала.",
-    "Bu QR kod geçersiz veya artık kullanılmıyor. Lütfen personelden yardım isteyin.": "Този QR код е невалиден или вече не се използва. Моля, обърнете се към персонала.",
-    "Çok fazla istek gönderildi. Lütfen biraz bekleyip tekrar deneyin.": "Твърде много заявки. Моля, изчакайте малко и опитайте отново.",
     "Kayıt bulunamadı.": "Не е намерено.",
     "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.": "Възникна неочаквана грешка. Моля, опитайте отново."
 }

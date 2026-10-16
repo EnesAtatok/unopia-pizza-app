@@ -1,17 +1,4 @@
 {
-    "Bir siparişte en fazla :max farklı kalem olabilir.": "Μια παραγγελία μπορεί να περιέχει έως :max διαφορετικά είδη.",
-    "Siparişiniz alındı, garson onayından sonra mutfağa iletilecek.": "Η παραγγελία σας ελήφθη και θα σταλεί στην κουζίνα μόλις την επιβεβαιώσει ο σερβιτόρος.",
-    "Masa doğrulanamadı. Lütfen masanızdaki QR kodu tekrar okutun.": "Δεν ήταν δυνατή η επιβεβαίωση του τραπεζιού σας. Σαρώστε ξανά τον κωδικό QR στο τραπέζι σας.",
-    "Şu an kapalıyız. Çalışma saatlerimiz :open – :close.": "Αυτή τη στιγμή είμαστε κλειστά. Ωράριο λειτουργίας: :open – :close.",
-    "Bir siparişte en fazla :max adet ürün olabilir. Daha büyük siparişler için garsonunuza başvurun.": "Μια παραγγελία μπορεί να περιέχει έως :max τεμάχια. Για μεγαλύτερες παραγγελίες απευθυνθείτε στον σερβιτόρο.",
-    "Şu ürün(ler) tükendi: :items. Lütfen sepetinizden çıkarın.": "Εξαντλήθηκε: :items. Αφαιρέστε τα από το καλάθι σας.",
-    ":product için geçersiz boy seçimi. Lütfen ürünü sepetinizden çıkarıp yeniden ekleyin.": "Μη έγκυρο μέγεθος για :product. Αφαιρέστε το προϊόν από το καλάθι και προσθέστε το ξανά.",
-    "Stok yetersiz, şu ürün(ler) bu miktarda hazırlanamıyor: :items. Lütfen adedi azaltın veya garsonunuza danışın.": "Δεν υπάρχει αρκετό απόθεμα για αυτή την ποσότητα: :items. Μειώστε την ποσότητα ή ρωτήστε τον σερβιτόρο.",
-    "Onay bekleyen siparişleriniz var. Garsonunuz onayladıktan sonra yeni sipariş verebilirsiniz.": "Έχετε παραγγελίες που περιμένουν επιβεβαίωση. Μπορείτε να κάνετε νέα παραγγελία μόλις τις επιβεβαιώσει ο σερβιτόρος.",
-    "Sipariş bulunamadı.": "Η παραγγελία δεν βρέθηκε.",
-    "Garson çağrınız personele iletildi.": "Το αίτημά σας στάλθηκε στο προσωπικό.",
-    "Bu QR kod geçersiz veya artık kullanılmıyor. Lütfen personelden yardım isteyin.": "Αυτός ο κωδικός QR δεν είναι έγκυρος ή δεν χρησιμοποιείται πλέον. Ζητήστε βοήθεια από το προσωπικό.",
-    "Çok fazla istek gönderildi. Lütfen biraz bekleyip tekrar deneyin.": "Πάρα πολλά αιτήματα. Περιμένετε λίγο και δοκιμάστε ξανά.",
     "Kayıt bulunamadı.": "Δεν βρέθηκε.",
     "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.": "Παρουσιάστηκε απρόσμενο σφάλμα. Δοκιμάστε ξανά."
 }
